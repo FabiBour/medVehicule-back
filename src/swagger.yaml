@@ -1,0 +1,926 @@
+openapi: 3.0.3
+info:
+  title: MedVehicule API
+  description: API REST de gestion de flotte de véhicules hospitaliers
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Serveur local
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Hospital:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        address: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    VehicleType:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+    Vehicle:
+      type: object
+      properties:
+        id: { type: string }
+        hospitalId: { type: string }
+        vehicleTypeId: { type: string }
+        registration: { type: string, nullable: true }
+        brand: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        year: { type: integer, nullable: true }
+        vehicleType: { $ref: '#/components/schemas/VehicleType' }
+        hospital: { $ref: '#/components/schemas/Hospital' }
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        role: { type: string, enum: [staff, supervisor, admin] }
+        hospitalId: { type: string }
+    Booking:
+      type: object
+      properties:
+        id: { type: string }
+        vehicleId: { type: string }
+        userId: { type: string }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time, nullable: true }
+        odometerStart: { type: integer, nullable: true }
+        odometerEnd: { type: integer, nullable: true }
+        status: { type: string, enum: [planned, in_progress, completed, cancelled] }
+        notes: { type: string, nullable: true }
+    ProblemReport:
+      type: object
+      properties:
+        id: { type: string }
+        vehicleId: { type: string }
+        type: { type: string, enum: [rayure, impact, panne, autre] }
+        description: { type: string, nullable: true }
+        severity: { type: string, enum: [mineur, moyen, majeur], nullable: true }
+        status: { type: string, enum: [ouvert, en_cours, cloture] }
+    Maintenance:
+      type: object
+      properties:
+        id: { type: string }
+        vehicleId: { type: string }
+        type: { type: string, enum: [controle_technique, revision, reparation, autre] }
+        scheduledAt: { type: string, format: date-time, nullable: true }
+        performedAt: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [planifie, en_cours, termine, reporte] }
+    Vehicle3D:
+      type: object
+      properties:
+        id: { type: string }
+        vehicleId: { type: string }
+        format: { type: string, enum: [glb, gltf] }
+        url: { type: string, description: "URL du fichier 3D" }
+
+paths:
+  /health:
+    get:
+      summary: Santé de l'API
+      tags: [Système]
+      responses:
+        '200': { description: OK }
+  /api/auth/login:
+    post:
+      summary: Connexion
+      tags: [Authentification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200': { description: Token et utilisateur }
+        '401': { description: Identifiants incorrects }
+  /api/auth/me:
+    get:
+      summary: Utilisateur courant
+      tags: [Authentification]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Utilisateur }
+  /api/hospitals:
+    get:
+      summary: Liste des établissements
+      tags: [Établissements]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Créer un établissement
+      tags: [Établissements]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                address: { type: string }
+      responses:
+        '201': { description: Créé }
+  /api/hospitals/{id}:
+    get:
+      summary: Détail établissement
+      tags: [Établissements]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Modifier établissement
+      tags: [Établissements]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                address: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/vehicle-types:
+    get:
+      summary: Liste des types de véhicules
+      tags: [Types de véhicules]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Créer un type
+      tags: [Types de véhicules]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string }
+      responses:
+        '201': { description: Créé }
+  /api/vehicle-types/{id}:
+    get:
+      summary: Détail type
+      tags: [Types de véhicules]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Modifier type
+      tags: [Types de véhicules]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/vehicles:
+    get:
+      summary: Liste des véhicules
+      tags: [Véhicules]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: hospitalId
+          in: query
+          schema: { type: string }
+        - name: vehicleTypeId
+          in: query
+          schema: { type: string }
+        - name: available
+          in: query
+          schema: { type: string, enum: [true, false] }
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Créer un véhicule
+      tags: [Véhicules]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hospitalId, vehicleTypeId]
+              properties:
+                hospitalId: { type: string }
+                vehicleTypeId: { type: string }
+                registration: { type: string }
+                brand: { type: string }
+                model: { type: string }
+                year: { type: integer }
+      responses:
+        '201': { description: Créé }
+  /api/vehicles/{vehicleId}:
+    get:
+      summary: Détail véhicule
+      tags: [Véhicules]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Modifier véhicule
+      tags: [Véhicules]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                registration: { type: string }
+                brand: { type: string }
+                model: { type: string }
+                year: { type: integer }
+                vehicleTypeId: { type: string }
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Supprimer véhicule
+      tags: [Véhicules]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Supprimé }
+  /api/vehicles/{vehicleId}/history:
+    get:
+      summary: Historique du véhicule
+      description: Prises, interventions et entretiens
+      tags: [Véhicules]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/users:
+    get:
+      summary: Liste des utilisateurs
+      tags: [Utilisateurs]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Créer un utilisateur
+      tags: [Utilisateurs]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hospitalId, email, password, firstName, lastName, role]
+              properties:
+                hospitalId: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 6 }
+                firstName: { type: string }
+                lastName: { type: string }
+                role: { type: string, enum: [staff, supervisor, admin] }
+      responses:
+        '201': { description: Créé }
+  /api/authorizations:
+    get:
+      summary: Liste des droits d'utilisation
+      tags: [Autorisations]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Accorder un droit
+      tags: [Autorisations]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, vehicleTypeId]
+              properties:
+                userId: { type: string }
+                vehicleTypeId: { type: string }
+                expiresAt: { type: string, format: date-time }
+      responses:
+        '201': { description: Créé }
+  /api/authorizations/user/{userId}:
+    get:
+      summary: Droits d'un utilisateur
+      tags: [Autorisations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/authorizations/{id}/revoke:
+    post:
+      summary: Révoquer un droit
+      tags: [Autorisations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/bookings:
+    get:
+      summary: Liste des réservations
+      tags: [Réservations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: query
+          schema: { type: string }
+        - name: userId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [planned, in_progress, completed, cancelled] }
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Créer une réservation
+      tags: [Réservations]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicleId, startDate]
+              properties:
+                vehicleId: { type: string }
+                startDate: { type: string, format: date-time }
+                endDate: { type: string, format: date-time }
+                notes: { type: string }
+      responses:
+        '201': { description: Créé }
+  /api/bookings/{id}:
+    get:
+      summary: Détail réservation
+      tags: [Réservations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/bookings/{id}/start:
+    patch:
+      summary: Démarrer la prise
+      tags: [Réservations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                odometerStart: { type: integer, minimum: 0 }
+      responses:
+        '200': { description: OK }
+  /api/bookings/{id}/complete:
+    patch:
+      summary: Terminer la prise (restitution)
+      tags: [Réservations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [odometerEnd]
+              properties:
+                odometerEnd: { type: integer, minimum: 0 }
+                notes: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/bookings/{id}/cancel:
+    patch:
+      summary: Annuler une réservation
+      tags: [Réservations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/photos/vehicle/{vehicleId}:
+    get:
+      summary: Photos d'un véhicule
+      tags: [Photos]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Ajouter une photo
+      description: multipart/form-data - photo (fichier), label, bookingId
+      tags: [Photos]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo: { type: string, format: binary }
+                label: { type: string }
+                bookingId: { type: string }
+      responses:
+        '201': { description: Créé }
+  /api/photos/{photoId}:
+    delete:
+      summary: Supprimer une photo
+      tags: [Photos]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: photoId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Supprimé }
+  /api/problem-reports:
+    get:
+      summary: Liste des signalements
+      tags: [Signalements]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ouvert, en_cours, cloture] }
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Créer un signalement
+      tags: [Signalements]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicleId, type]
+              properties:
+                vehicleId: { type: string }
+                type: { type: string, enum: [rayure, impact, panne, autre] }
+                description: { type: string }
+                severity: { type: string, enum: [mineur, moyen, majeur] }
+                bookingId: { type: string }
+                photoIds: { type: array, items: { type: string } }
+      responses:
+        '201': { description: Créé }
+  /api/problem-reports/{id}:
+    get:
+      summary: Détail signalement
+      tags: [Signalements]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Modifier signalement
+      tags: [Signalements]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [ouvert, en_cours, cloture] }
+                description: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/odometer/vehicle/{vehicleId}:
+    get:
+      summary: Relevés compteur
+      tags: [Compteur]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Enregistrer un relevé
+      tags: [Compteur]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value: { type: integer, minimum: 0 }
+                bookingId: { type: string }
+      responses:
+        '201': { description: Créé }
+  /api/maintenance:
+    get:
+      summary: Liste des entretiens
+      tags: [Entretien]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { type: string, enum: [controle_technique, revision, reparation, autre] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [planifie, en_cours, termine, reporte] }
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Créer un entretien
+      tags: [Entretien]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicleId, type]
+              properties:
+                vehicleId: { type: string }
+                type: { type: string, enum: [controle_technique, revision, reparation, autre] }
+                garageId: { type: string }
+                contractId: { type: string }
+                scheduledAt: { type: string, format: date-time }
+                odometerAt: { type: integer }
+                notes: { type: string }
+      responses:
+        '201': { description: Créé }
+  /api/maintenance/garages/list:
+    get:
+      summary: Liste des garages partenaires
+      tags: [Entretien]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Liste }
+  /api/maintenance/garages:
+    post:
+      summary: Créer un garage partenaire
+      tags: [Entretien]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hospitalId, name]
+              properties:
+                hospitalId: { type: string }
+                name: { type: string }
+                address: { type: string }
+                contact: { type: string }
+      responses:
+        '201': { description: Créé }
+  /api/maintenance/contracts/vehicle/{vehicleId}:
+    get:
+      summary: Contrats d'un véhicule
+      tags: [Entretien]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Liste }
+  /api/maintenance/contracts:
+    post:
+      summary: Créer un contrat d'entretien
+      tags: [Entretien]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicleId, type, startDate]
+              properties:
+                vehicleId: { type: string }
+                type: { type: string, enum: [entretien_courant, assurance, leasing] }
+                garageId: { type: string }
+                startDate: { type: string, format: date-time }
+                endDate: { type: string, format: date-time }
+                reference: { type: string }
+                notes: { type: string }
+      responses:
+        '201': { description: Créé }
+  /api/maintenance/{id}:
+    get:
+      summary: Détail entretien
+      tags: [Entretien]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Modifier entretien
+      tags: [Entretien]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduledAt: { type: string, format: date-time }
+                performedAt: { type: string, format: date-time }
+                odometerAt: { type: integer }
+                cost: { type: number }
+                notes: { type: string }
+                status: { type: string, enum: [planifie, en_cours, termine, reporte] }
+      responses:
+        '200': { description: OK }
+  /api/assistance:
+    get:
+      summary: Liste des demandes d'assistance
+      tags: [Assistance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ouverte, en_route, traitee] }
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Créer une demande d'assistance
+      tags: [Assistance]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicleId, type]
+              properties:
+                vehicleId: { type: string }
+                type: { type: string, enum: [panne, accident, depannage] }
+                description: { type: string }
+                location: { type: string }
+      responses:
+        '201': { description: Créé }
+  /api/assistance/{id}:
+    patch:
+      summary: Mettre à jour statut assistance
+      tags: [Assistance]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [ouverte, en_route, traitee] }
+      responses:
+        '200': { description: OK }
+  /api/interventions:
+    get:
+      summary: Liste des demandes d'intervention
+      tags: [Interventions]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [nouvelle, en_cours, terminee, rejetee] }
+        - name: createdBy
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: Liste }
+    post:
+      summary: Créer une demande d'intervention
+      tags: [Interventions]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicleId, title]
+              properties:
+                vehicleId: { type: string }
+                title: { type: string }
+                description: { type: string }
+                priority: { type: string, enum: [basse, normal, haute, urgent] }
+      responses:
+        '201': { description: Créé }
+  /api/interventions/{id}:
+    get:
+      summary: Détail demande d'intervention
+      tags: [Interventions]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Mettre à jour demande (statut, assignation)
+      tags: [Interventions]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [nouvelle, en_cours, terminee, rejetee] }
+                assignedToId: { type: string }
+                comment: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/vehicle3d/vehicle/{vehicleId}:
+    get:
+      summary: Modèle 3D du véhicule
+      description: Retourne format et URL du fichier glTF/GLB (iOS, Android, Web)
+      tags: [Modèle 3D]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+        '404': { description: Modèle non disponible }
+    post:
+      summary: Upload modèle 3D
+      description: multipart/form-data - model (fichier .glb ou .gltf)
+      tags: [Modèle 3D]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                model: { type: string, format: binary }
+      responses:
+        '201': { description: Créé }
+    delete:
+      summary: Supprimer le modèle 3D
+      tags: [Modèle 3D]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Supprimé }

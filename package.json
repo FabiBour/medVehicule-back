@@ -1,0 +1,33 @@
+{
+  "name": "med-vehicule-api",
+  "version": "1.0.0",
+  "description": "API REST de gestion de flotte de véhicules hospitaliers",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "db:seed": "node scripts/seed-firestore.js"
+  },
+  "keywords": [
+    "api",
+    "vehicule",
+    "hopital",
+    "flotte"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "express-validator": "^7.2.0",
+    "js-yaml": "^4.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {}
+}
