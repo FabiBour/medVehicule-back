@@ -8,7 +8,6 @@ import { ROLE_USAGER } from '../lib/roles.js';
 export const authRouter = Router();
 
 const FIREBASE_WEB_API_KEY = process.env.FIREBASE_WEB_API_KEY;
-const FIREBASE_AUTH_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
 
 /**
  * Connexion avec email et mot de passe.
