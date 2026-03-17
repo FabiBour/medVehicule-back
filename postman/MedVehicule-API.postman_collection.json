@@ -1,0 +1,678 @@
+{
+  "info": {
+    "name": "MedVehicule API",
+    "description": "API REST de gestion de flotte de véhicules hospitaliers.\n\nAuthentification : Firebase ID token dans Authorization Bearer.\nRôles : 0=admin, 1=gestionnaire, 2=usager.\n\nSwagger : https://medvehicule-back.onrender.com/api-docs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://medvehicule-back.onrender.com" },
+    { "key": "firebaseToken", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{firebaseToken}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Système",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health",
+            "description": "Santé de l'API (sans auth)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentification",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{firebaseToken}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idToken) {",
+                  "    pm.environment.set('firebaseToken', json.idToken);",
+                  "    pm.collectionVariables.set('firebaseToken', json.idToken);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Connexion avec email et mot de passe. Retourne idToken. Le script de test enregistre le token dans firebaseToken."
+          }
+        },
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.idToken) {",
+                  "    pm.environment.set('firebaseToken', json.idToken);",
+                  "    pm.collectionVariables.set('firebaseToken', json.idToken);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nouveau@example.com\",\n  \"password\": \"password123\",\n  \"firstName\": \"Jean\",\n  \"lastName\": \"Dupont\",\n  \"hospitalId\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Création de compte. Retourne idToken si FIREBASE_WEB_API_KEY configuré. Le script enregistre le token dans firebaseToken."
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/me",
+            "description": "Profil utilisateur courant. Requiert Bearer token Firebase valide ({{firebaseToken}})."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Établissements",
+      "item": [
+        {
+          "name": "Liste établissements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/hospitals"
+          }
+        },
+        {
+          "name": "Créer établissement",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CHU Centre\",\n  \"address\": \"2 rue de l'Hôpital\"\n}"
+            },
+            "url": "{{baseUrl}}/api/hospitals"
+          }
+        },
+        {
+          "name": "Détail établissement",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/hospitals/{{hospitalId}}"
+          }
+        },
+        {
+          "name": "Modifier établissement",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CHU Centre Modifié\",\n  \"address\": \"3 rue Nouvelle\"\n}"
+            },
+            "url": "{{baseUrl}}/api/hospitals/{{hospitalId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Types de véhicules",
+      "item": [
+        {
+          "name": "Liste types",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/vehicle-types" }
+        },
+        {
+          "name": "Créer type",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Voiture\",\n  \"description\": \"Véhicule léger\"\n}"
+            },
+            "url": "{{baseUrl}}/api/vehicle-types"
+          }
+        },
+        {
+          "name": "Détail type",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/vehicle-types/{{vehicleTypeId}}" }
+        },
+        {
+          "name": "Modifier type",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Ambulance\",\n  \"description\": \"Véhicule sanitaire\"\n}" },
+            "url": "{{baseUrl}}/api/vehicle-types/{{vehicleTypeId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Véhicules",
+      "item": [
+        {
+          "name": "Liste véhicules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/vehicles?hospitalId=&vehicleTypeId=&available=",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "vehicles"],
+              "query": [
+                {"key": "hospitalId", "value": ""},
+                {"key": "vehicleTypeId", "value": ""},
+                {"key": "available", "value": "", "description": "true | false"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Créer véhicule",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hospitalId\": \"{{hospitalId}}\",\n  \"vehicleTypeId\": \"{{vehicleTypeId}}\",\n  \"registration\": \"AB-123-CD\",\n  \"brand\": \"Renault\",\n  \"model\": \"Espace\",\n  \"year\": 2023\n}"
+            },
+            "url": "{{baseUrl}}/api/vehicles"
+          }
+        },
+        {
+          "name": "Détail véhicule",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}" }
+        },
+        {
+          "name": "Modifier véhicule",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registration\": \"CD-456-EF\",\n  \"brand\": \"Peugeot\",\n  \"model\": \"5008\",\n  \"year\": 2024,\n  \"vehicleTypeId\": \"{{vehicleTypeId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}"
+          }
+        },
+        {
+          "name": "Supprimer véhicule",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}" }
+        },
+        {
+          "name": "Historique véhicule",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/history",
+            "description": "Prises, interventions et entretiens"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Utilisateurs",
+      "item": [
+        {
+          "name": "Liste utilisateurs",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/users" }
+        },
+        {
+          "name": "Créer utilisateur (admin)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hospitalId\": \"{{hospitalId}}\",\n  \"email\": \"nouveau@chu.fr\",\n  \"password\": \"password123\",\n  \"firstName\": \"Marie\",\n  \"lastName\": \"Nouvelle\",\n  \"role\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/users",
+            "description": "role: 0=admin, 1=gestionnaire, 2=usager"
+          }
+        },
+        {
+          "name": "Modifier rôle (admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": { "mode": "raw", "raw": "{\n  \"role\": 1\n}" },
+            "url": "{{baseUrl}}/api/users/{{userId}}/role"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Autorisations",
+      "item": [
+        {
+          "name": "Liste autorisations",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/authorizations" }
+        },
+        {
+          "name": "Accorder droit",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"vehicleTypeId\": \"{{vehicleTypeId}}\",\n  \"expiresAt\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/authorizations"
+          }
+        },
+        {
+          "name": "Droits d'un utilisateur",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/authorizations/user/{{userId}}" }
+        },
+        {
+          "name": "Révoquer droit",
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/api/authorizations/{{authorizationId}}/revoke" }
+        }
+      ]
+    },
+    {
+      "name": "Réservations",
+      "item": [
+        {
+          "name": "Liste réservations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bookings"],
+              "query": [
+                {"key": "vehicleId", "value": ""},
+                {"key": "userId", "value": ""},
+                {"key": "status", "value": "", "description": "planned | in_progress | completed | cancelled"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Créer réservation",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"{{vehicleId}}\",\n  \"startDate\": \"2024-01-15T09:00:00.000Z\",\n  \"endDate\": null,\n  \"notes\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/api/bookings"
+          }
+        },
+        {
+          "name": "Détail réservation",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/bookings/{{bookingId}}" }
+        },
+        {
+          "name": "Démarrer prise",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": { "mode": "raw", "raw": "{\n  \"odometerStart\": 50000\n}" },
+            "url": "{{baseUrl}}/api/bookings/{{bookingId}}/start"
+          }
+        },
+        {
+          "name": "Terminer prise",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": { "mode": "raw", "raw": "{\n  \"odometerEnd\": 50100,\n  \"notes\": \"\"\n}" },
+            "url": "{{baseUrl}}/api/bookings/{{bookingId}}/complete"
+          }
+        },
+        {
+          "name": "Annuler réservation",
+          "request": { "method": "PATCH", "header": [], "url": "{{baseUrl}}/api/bookings/{{bookingId}}/cancel" }
+        }
+      ]
+    },
+    {
+      "name": "Photos",
+      "item": [
+        {
+          "name": "Photos véhicule",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/photos/vehicle/{{vehicleId}}" }
+        },
+        {
+          "name": "Ajouter photo",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {"key": "photo", "type": "file", "src": ""},
+                {"key": "label", "value": "avant_prise", "type": "text"},
+                {"key": "bookingId", "value": "", "type": "text"}
+              ]
+            },
+            "url": "{{baseUrl}}/api/photos/vehicle/{{vehicleId}}"
+          }
+        },
+        {
+          "name": "Supprimer photo",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/photos/{{photoId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Signalements",
+      "item": [
+        {
+          "name": "Liste signalements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/problem-reports",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "problem-reports"],
+              "query": [
+                {"key": "vehicleId", "value": ""},
+                {"key": "status", "value": "", "description": "ouvert | en_cours | cloture"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Créer signalement",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"{{vehicleId}}\",\n  \"type\": \"rayure\",\n  \"description\": \"Rayure sur portière\",\n  \"severity\": \"mineur\",\n  \"bookingId\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/problem-reports"
+          }
+        },
+        {
+          "name": "Détail signalement",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/problem-reports/{{reportId}}" }
+        },
+        {
+          "name": "Modifier signalement",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"en_cours\",\n  \"description\": \"En cours de traitement\"\n}" },
+            "url": "{{baseUrl}}/api/problem-reports/{{reportId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Compteur",
+      "item": [
+        {
+          "name": "Relevés compteur",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/odometer/vehicle/{{vehicleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "odometer", "vehicle", "{{vehicleId}}"],
+              "query": [{"key": "limit", "value": "50"}]
+            }
+          }
+        },
+        {
+          "name": "Enregistrer relevé",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": 50100,\n  \"bookingId\": null\n}"
+            },
+            "url": "{{baseUrl}}/api/odometer/vehicle/{{vehicleId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Entretien",
+      "item": [
+        {
+          "name": "Liste entretiens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/maintenance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "maintenance"],
+              "query": [
+                {"key": "vehicleId", "value": ""},
+                {"key": "type", "value": "", "description": "controle_technique | revision | reparation | autre"},
+                {"key": "status", "value": "", "description": "planifie | en_cours | termine | reporte"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Créer entretien",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"{{vehicleId}}\",\n  \"type\": \"controle_technique\",\n  \"garageId\": null,\n  \"contractId\": null,\n  \"scheduledAt\": \"2024-02-01T09:00:00.000Z\",\n  \"odometerAt\": null,\n  \"notes\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/api/maintenance"
+          }
+        },
+        {
+          "name": "Liste garages",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/maintenance/garages/list" }
+        },
+        {
+          "name": "Créer garage",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hospitalId\": \"{{hospitalId}}\",\n  \"name\": \"Garage Central\",\n  \"address\": \"5 rue Garage\",\n  \"contact\": \"01 23 45 67 89\"\n}"
+            },
+            "url": "{{baseUrl}}/api/maintenance/garages"
+          }
+        },
+        {
+          "name": "Contrats véhicule",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/maintenance/contracts/vehicle/{{vehicleId}}" }
+        },
+        {
+          "name": "Créer contrat",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"{{vehicleId}}\",\n  \"type\": \"entretien_courant\",\n  \"garageId\": null,\n  \"startDate\": \"2024-01-01\",\n  \"endDate\": \"2025-01-01\",\n  \"reference\": \"CONTRACT-001\",\n  \"notes\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/api/maintenance/contracts"
+          }
+        },
+        {
+          "name": "Détail entretien",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/maintenance/{{maintenanceId}}" }
+        },
+        {
+          "name": "Modifier entretien",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduledAt\": \"2024-02-15T09:00:00.000Z\",\n  \"performedAt\": null,\n  \"odometerAt\": 50200,\n  \"cost\": 150,\n  \"notes\": \"CT passé\",\n  \"status\": \"termine\"\n}"
+            },
+            "url": "{{baseUrl}}/api/maintenance/{{maintenanceId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Assistance",
+      "item": [
+        {
+          "name": "Liste demandes assistance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/assistance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assistance"],
+              "query": [
+                {"key": "vehicleId", "value": ""},
+                {"key": "status", "value": "", "description": "ouverte | en_route | traitee"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Créer demande assistance",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"{{vehicleId}}\",\n  \"type\": \"panne\",\n  \"description\": \"Moteur ne démarre pas\",\n  \"location\": \"Parking CHU\"\n}"
+            },
+            "url": "{{baseUrl}}/api/assistance"
+          }
+        },
+        {
+          "name": "Mettre à jour statut assistance",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"en_route\"\n}" },
+            "url": "{{baseUrl}}/api/assistance/{{assistanceId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Interventions",
+      "item": [
+        {
+          "name": "Liste demandes intervention",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/interventions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "interventions"],
+              "query": [
+                {"key": "vehicleId", "value": ""},
+                {"key": "status", "value": "", "description": "nouvelle | en_cours | terminee | rejetee"},
+                {"key": "createdBy", "value": ""}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Créer demande intervention",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"{{vehicleId}}\",\n  \"title\": \"Problème freinage\",\n  \"description\": \"Pédale de frein molle\",\n  \"priority\": \"haute\"\n}"
+            },
+            "url": "{{baseUrl}}/api/interventions"
+          }
+        },
+        {
+          "name": "Détail demande intervention",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/interventions/{{interventionId}}" }
+        },
+        {
+          "name": "Modifier demande intervention",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"en_cours\",\n  \"assignedToId\": \"{{userId}}\",\n  \"comment\": \"Assigné au gestionnaire\"\n}"
+            },
+            "url": "{{baseUrl}}/api/interventions/{{interventionId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Modèle 3D",
+      "item": [
+        {
+          "name": "Modèle 3D véhicule",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/vehicle3d/vehicle/{{vehicleId}}" }
+        },
+        {
+          "name": "Upload modèle 3D",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [{"key": "model", "type": "file", "src": ""}]
+            },
+            "url": "{{baseUrl}}/api/vehicle3d/vehicle/{{vehicleId}}"
+          }
+        },
+        {
+          "name": "Supprimer modèle 3D",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/vehicle3d/vehicle/{{vehicleId}}" }
+        }
+      ]
+    }
+  ]
+}

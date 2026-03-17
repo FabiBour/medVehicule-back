@@ -98,30 +98,70 @@ paths:
       tags: [Système]
       responses:
         '200': { description: OK }
-  /api/auth/register-profil:
+  /api/auth/login:
     post:
-      summary: Créer le profil après inscription Firebase
-      description: |
-        Appelé après que l'utilisateur a créé un compte via Firebase Auth (createUserWithEmailAndPassword).
-        Le rôle est automatiquement 2 (usager).
-        Header requis : Authorization Bearer &lt;firebase-id-token&gt;
+      summary: Connexion avec email et mot de passe
+      description: Retourne l'idToken Firebase pour les requêtes authentifiées (Authorization Bearer).
       tags: [Authentification]
-      security: [{ bearerAuth: [] }]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [firstName, lastName]
+              required: [email, password]
               properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idToken: { type: string, description: "Token à utiliser dans Authorization Bearer" }
+                  refreshToken: { type: string }
+                  expiresIn: { type: string }
+                  localId: { type: string }
+        '401': { description: Email ou mot de passe incorrect }
+        '503': { description: FIREBASE_WEB_API_KEY non configuré }
+  /api/auth/register:
+    post:
+      summary: Création de compte avec email et mot de passe
+      description: |
+        Crée l'utilisateur dans Firebase Auth et le profil dans Firestore.
+        Retourne l'idToken pour connexion immédiate.
+        Rôle attribué : 2 (usager).
+      tags: [Authentification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, firstName, lastName]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 6 }
                 firstName: { type: string }
                 lastName: { type: string }
                 hospitalId: { type: string, nullable: true }
       responses:
-        '201': { description: Profil créé }
-        '401': { description: Token Firebase requis ou invalide }
-        '409': { description: Profil déjà créé }
+        '201':
+          description: Compte créé (avec idToken si FIREBASE_WEB_API_KEY configuré)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idToken: { type: string }
+                  refreshToken: { type: string }
+                  expiresIn: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '409': { description: Email déjà utilisé }
+        '400': { description: Données invalides (mot de passe trop faible, etc.) }
   /api/auth/me:
     get:
       summary: Utilisateur courant

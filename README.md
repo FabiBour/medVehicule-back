@@ -45,12 +45,18 @@ Par défaut l’API écoute sur `http://localhost:3000`.
 
 ## Authentification (Firebase Auth)
 
-L'authentification utilise **Firebase Auth**. Le client se connecte ou crée un compte via le SDK Firebase, puis envoie le **Firebase ID token** dans le header `Authorization: Bearer <token>`.
+L'authentification utilise **Firebase Auth**. Deux modes :
 
-- **POST /api/auth/register-profil** — Création du profil après inscription Firebase  
-  Header : `Authorization: Bearer <firebase-id-token>`  
-  Body : `{ "firstName", "lastName", "hospitalId?" }`  
-  Rôle attribué automatiquement : **2 (usager)**
+### Connexion / inscription via l'API (email + mot de passe)
+
+- **POST /api/auth/login** — Connexion avec email et mot de passe  
+  Body : `{ "email", "password" }`  
+  Retourne : `{ "idToken", "refreshToken", "expiresIn" }` — utiliser `idToken` dans `Authorization: Bearer <idToken>`
+
+- **POST /api/auth/register** — Création de compte avec email et mot de passe  
+  Body : `{ "email", "password", "firstName", "lastName", "hospitalId?" }`  
+  Crée l'utilisateur dans Firebase Auth et le profil dans Firestore. Retourne `idToken` pour connexion immédiate.  
+  **Requis** : `FIREBASE_WEB_API_KEY` dans `.env` (clé API Web Firebase, paramètres du projet).
 
 - **GET /api/auth/me** — Profil utilisateur courant  
   Header : `Authorization: Bearer <firebase-id-token>`

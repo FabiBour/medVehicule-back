@@ -20,7 +20,7 @@ export async function requireAuth(req, res, next) {
     });
     if (!user) {
       return res.status(401).json({
-        error: 'Profil utilisateur introuvable. Appelez POST /api/auth/register-profil pour créer votre profil.',
+        error: 'Profil utilisateur introuvable. Appelez POST /api/auth/register pour créer votre compte.',
       });
     }
     req.userId = uid;
