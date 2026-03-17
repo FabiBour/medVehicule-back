@@ -1,0 +1,20 @@
+# Blueprint Render - déploiement automatique
+# https://docs.render.com/blueprint-spec
+
+services:
+  - type: web
+    runtime: node
+    name: medvehicule-api
+
+    # Build & Start
+    buildCommand: npm install
+    startCommand: npm start
+
+    # Santé
+    healthCheckPath: /health
+
+    # Variables d'environnement (à configurer dans le Dashboard Render)
+    # JWT_SECRET, FIREBASE_SERVICE_ACCOUNT
+    envVars:
+      - key: NODE_ENV
+        value: production
