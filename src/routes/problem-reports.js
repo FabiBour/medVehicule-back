@@ -16,7 +16,7 @@ problemReportsRouter.get(
     if (req.query.vehicleId) where.vehicleId = req.query.vehicleId;
     if (req.query.status) where.status = req.query.status;
     const vehicles = await prisma.vehicle.findMany({
-      where: req.user.role !== 'admin' ? { hospitalId: req.user.hospitalId } : {},
+      where: req.user.role !== 0 ? { hospitalId: req.user.hospitalId } : {},
       select: { id: true },
     });
     const vehicleIds = vehicles.map((v) => v.id);

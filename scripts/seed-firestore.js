@@ -1,12 +1,16 @@
 /**
  * Seed Firestore avec des données de démonstration.
+ * Crée les utilisateurs dans Firebase Auth + profils dans Firestore.
  * Exécuter : node scripts/seed-firestore.js
  *
  * Nécessite GOOGLE_APPLICATION_CREDENTIALS ou FIREBASE_SERVICE_ACCOUNT.
  */
 import 'dotenv/config';
 import admin from 'firebase-admin';
-import bcrypt from 'bcryptjs';
+
+const ROLE_ADMIN = 0;
+const ROLE_GESTIONNAIRE = 1;
+const ROLE_USAGER = 2;
 
 function initFirebase() {
   if (admin.apps.length > 0) return admin.firestore();
@@ -32,7 +36,6 @@ async function deleteCollection(collectionName) {
 }
 
 async function main() {
-  // Ordre de suppression (respect des dépendances)
   const collections = [
     'interventionStatusHistory',
     'interventionRequests',
@@ -57,7 +60,7 @@ async function main() {
     await deleteCollection(name);
   }
 
-  // Création des données
+  // Hospital
   const hospitalRef = db.collection('hospitals').doc();
   await hospitalRef.set({
     name: "CHU Centre",
@@ -67,6 +70,7 @@ async function main() {
   });
   const hospitalId = hospitalRef.id;
 
+  // Types de véhicules
   const types = [
     { name: 'Voiture', description: 'Véhicule léger' },
     { name: 'Ambulance', description: 'Véhicule sanitaire' },
@@ -83,36 +87,58 @@ async function main() {
     typeIds.push(ref.id);
   }
 
-  const passwordHash = await bcrypt.hash('password123', 10);
+  // Utilisateurs Firebase Auth + Firestore (rôle 0=admin, 1=gestionnaire, 2=usager)
+  const password = 'password123';
+  let supervisorUid, staffUid;
 
-  const supervisorRef = db.collection('users').doc();
-  await supervisorRef.set({
-    hospitalId,
-    email: 'supervisor@chu.fr',
-    passwordHash,
+  try {
+    const supervisor = await admin.auth().createUser({
+      email: 'admin@chu.fr',
+      password,
+      displayName: 'Marie Admin',
+    });
+    supervisorUid = supervisor.uid;
+
+    const staff = await admin.auth().createUser({
+      email: 'usager@chu.fr',
+      password,
+      displayName: 'Jean Usager',
+    });
+    staffUid = staff.uid;
+  } catch (err) {
+    if (err.code === 'auth/email-already-exists') {
+      console.log('Utilisateurs Firebase déjà existants. Supprimez-les dans la console Firebase si besoin.');
+      const existing = await admin.auth().getUsersByEmail(['admin@chu.fr', 'usager@chu.fr']);
+      supervisorUid = existing.users[0]?.uid;
+      staffUid = existing.users[1]?.uid;
+      if (!supervisorUid || !staffUid) throw new Error('Impossible de récupérer les utilisateurs existants');
+    } else throw err;
+  }
+
+  await db.collection('users').doc(supervisorUid).set({
+    email: 'admin@chu.fr',
     firstName: 'Marie',
-    lastName: 'Supervisor',
-    role: 'supervisor',
+    lastName: 'Admin',
+    role: ROLE_ADMIN,
+    hospitalId,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
 
-  const staffRef = db.collection('users').doc();
-  await staffRef.set({
-    hospitalId,
-    email: 'staff@chu.fr',
-    passwordHash,
+  await db.collection('users').doc(staffUid).set({
+    email: 'usager@chu.fr',
     firstName: 'Jean',
-    lastName: 'Staff',
-    role: 'staff',
+    lastName: 'Usager',
+    role: ROLE_USAGER,
+    hospitalId,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
 
   await db.collection('authorizations').doc().set({
-    userId: staffRef.id,
+    userId: staffUid,
     vehicleTypeId: typeIds[0],
-    grantedBy: supervisorRef.id,
+    grantedBy: supervisorUid,
     grantedAt: new Date(),
   });
 
@@ -130,8 +156,9 @@ async function main() {
 
   console.log('Seed OK:', {
     hospital: 'CHU Centre',
-    users: 2,
+    users: 'admin@chu.fr (role 0), usager@chu.fr (role 2)',
     vehicle: 'AB-123-CD',
+    password: 'password123',
   });
 }
 

@@ -159,13 +159,22 @@ export const firestoreDb = {
   user: {
     async findMany({ where = {}, select }) {
       let q = col('users');
-      if (where.hospitalId) q = q.where('hospitalId', '==', where.hospitalId);
+      if (where.hospitalId !== undefined) {
+        if (where.hospitalId === null) {
+          q = q.where('hospitalId', '==', null);
+        } else {
+          q = q.where('hospitalId', '==', where.hospitalId);
+        }
+      }
       const snap = await q.get();
       let arr = docsToArray(snap);
       if (select?.hospital) {
         for (const u of arr) {
-          const h = await col('hospitals').doc(u.hospitalId).get();
-          u.hospital = h.exists ? { id: h.id, name: h.data().name } : null;
+          u.hospital = null;
+          if (u.hospitalId) {
+            const h = await col('hospitals').doc(u.hospitalId).get();
+            u.hospital = h.exists ? { id: h.id, name: h.data().name } : null;
+          }
         }
       }
       return arr;
@@ -182,22 +191,46 @@ export const firestoreDb = {
       const obj = docToObject(doc);
       if (!obj) return null;
       if (include?.hospital) {
-        const h = await col('hospitals').doc(obj.hospitalId).get();
-        obj.hospital = h.exists ? { id: h.id, name: h.data().name } : null;
+        obj.hospital = null;
+        if (obj.hospitalId) {
+          const h = await col('hospitals').doc(obj.hospitalId).get();
+          obj.hospital = h.exists ? { id: h.id, name: h.data().name } : null;
+        }
       }
       return obj;
     },
     async create({ data, select }) {
-      const ref = col('users').doc();
+      const uid = data.uid || data.id;
+      if (!uid) throw new Error('uid requis pour créer un utilisateur (Firebase Auth)');
+      const ref = col('users').doc(uid);
+      const { uid: _u, passwordHash: _p, ...rest } = data;
       const payload = {
-        ...data,
+        ...rest,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
       await ref.set(payload);
-      const out = { id: ref.id, ...payload };
-      delete out.passwordHash;
+      const out = { id: uid, ...payload };
+      if (select?.hospital && out.hospitalId) {
+        const h = await col('hospitals').doc(out.hospitalId).get();
+        out.hospital = h.exists ? { id: h.id, name: h.data().name } : null;
+      }
       return out;
+    },
+    async update({ where, data, include }) {
+      const ref = col('users').doc(where.id);
+      const doc = await ref.get();
+      if (!doc.exists) return null;
+      const { passwordHash, uid, ...rest } = data;
+      const payload = { ...rest, updatedAt: new Date() };
+      await ref.update(payload);
+      const updated = await ref.get();
+      const obj = docToObject(updated);
+      if (include?.hospital && obj.hospitalId) {
+        const h = await col('hospitals').doc(obj.hospitalId).get();
+        obj.hospital = h.exists ? { id: h.id, name: h.data().name } : null;
+      }
+      return obj;
     },
   },
 

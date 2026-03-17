@@ -26,7 +26,7 @@ API REST Node.js pour la gestion de la flotte de véhicules d’un hôpital : lo
 ```bash
 npm install
 cp .env.example .env
-# Éditer .env : JWT_SECRET, GOOGLE_APPLICATION_CREDENTIALS ou FIREBASE_SERVICE_ACCOUNT
+# Éditer .env : GOOGLE_APPLICATION_CREDENTIALS ou FIREBASE_SERVICE_ACCOUNT
 npm run db:seed
 ```
 
@@ -43,21 +43,25 @@ Par défaut l’API écoute sur `http://localhost:3000`.
 
 **Documentation Swagger** : `http://localhost:3000/api-docs` — interface interactive pour tester les endpoints.
 
-## Authentification
+## Authentification (Firebase Auth)
 
-- **POST /api/auth/login**  
-  Body : `{ "email", "password" }`  
-  Réponse : `{ "token", "user" }`
+L'authentification utilise **Firebase Auth**. Le client se connecte ou crée un compte via le SDK Firebase, puis envoie le **Firebase ID token** dans le header `Authorization: Bearer <token>`.
 
-- **GET /api/auth/me**  
-  Header : `Authorization: Bearer <token>`  
-  Réponse : utilisateur courant.
+- **POST /api/auth/register-profil** — Création du profil après inscription Firebase  
+  Header : `Authorization: Bearer <firebase-id-token>`  
+  Body : `{ "firstName", "lastName", "hospitalId?" }`  
+  Rôle attribué automatiquement : **2 (usager)**
 
-Compte de test après seed :  
-- Superviseur : `supervisor@chu.fr` / `password123`  
-- Staff : `staff@chu.fr` / `password123`
+- **GET /api/auth/me** — Profil utilisateur courant  
+  Header : `Authorization: Bearer <firebase-id-token>`
 
-## Principales routes (toutes sous `/api`, auth Bearer sauf login)
+**Rôles** : 0 = admin, 1 = gestionnaire, 2 = usager. Seuls les admins peuvent modifier les rôles (PATCH /api/users/:id/role).
+
+Comptes de test après seed :  
+- Admin : `admin@chu.fr` / `password123`  
+- Usager : `usager@chu.fr` / `password123`
+
+## Principales routes (toutes sous `/api`, auth Bearer Firebase requis)
 
 | Ressource | Méthodes | Description |
 |-----------|----------|-------------|
@@ -65,7 +69,8 @@ Compte de test après seed :
 | **vehicle-types** | GET, GET /:id, POST, PATCH /:id | Types de véhicules |
 | **vehicles** | GET, GET /:id, POST, PATCH /:id, DELETE /:id | Véhicules ; GET ?hospitalId=&vehicleTypeId=&available= |
 | **vehicles/:id/history** | GET | Historique (prises, interventions, entretiens) |
-| **users** | GET, POST | Utilisateurs (liste, création par superviseur) |
+| **users** | GET, POST | Utilisateurs (liste, création par admin) |
+| **users/:id/role** | PATCH | Modifier le rôle (admin uniquement) |
 | **authorizations** | GET, GET /user/:userId, POST, POST /:id/revoke | Droits d’utilisation par type de véhicule |
 | **bookings** | GET, GET /:id, POST, PATCH /:id/start, PATCH /:id/complete, PATCH /:id/cancel | Réservations / prises |
 | **photos** | GET /vehicle/:vehicleId, POST /vehicle/:vehicleId (multipart), DELETE /:photoId | Photos véhicule |

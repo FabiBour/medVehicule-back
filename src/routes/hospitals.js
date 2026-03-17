@@ -23,7 +23,7 @@ hospitalsRouter.get('/:id', requireAuth, param('id').isString(), async (req, res
     },
   });
   if (!hospital) return res.status(404).json({ error: 'Établissement introuvable' });
-  if (req.user.hospitalId !== hospital.id && req.user.role !== 'admin') {
+  if (req.user.hospitalId !== hospital.id && req.user.role !== 0) {
     return res.status(403).json({ error: 'Accès refusé' });
   }
   res.json(hospital);
@@ -57,7 +57,7 @@ hospitalsRouter.patch(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const hospital = await prisma.hospital.findUnique({ where: { id: req.params.id } });
     if (!hospital) return res.status(404).json({ error: 'Établissement introuvable' });
-    if (req.user.hospitalId !== hospital.id && req.user.role !== 'admin') {
+    if (req.user.hospitalId !== hospital.id && req.user.role !== 0) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     const updated = await prisma.hospital.update({

@@ -15,13 +15,13 @@ interventionsRouter.get(
   query('createdBy').optional().isString(),
   async (req, res) => {
     const where = {};
-    if (req.user.role !== 'supervisor' && req.user.role !== 'admin') {
+    if (req.user.role !== 1 && req.user.role !== 0) {
       where.createdById = req.user.id;
     } else {
       if (req.query.createdBy) where.createdById = req.query.createdBy;
       if (req.query.vehicleId) {
         const v = await prisma.vehicle.findUnique({ where: { id: req.query.vehicleId } });
-        if (v && v.hospitalId !== req.user.hospitalId && req.user.role !== 'admin') where.vehicleId = 'impossible';
+        if (v && v.hospitalId !== req.user.hospitalId && req.user.role !== 0) where.vehicleId = 'impossible';
         else where.vehicleId = req.query.vehicleId;
       }
     }
@@ -37,7 +37,7 @@ interventionsRouter.get(
       },
       orderBy: { createdAt: 'desc' },
     });
-    const filtered = list.filter((r) => r.vehicle.hospitalId === req.user.hospitalId || req.user.role === 'admin');
+    const filtered = list.filter((r) => r.vehicle.hospitalId === req.user.hospitalId || req.user.role === 0);
     res.json(filtered);
   }
 );
@@ -57,7 +57,7 @@ interventionsRouter.get(
       },
     });
     if (!req_) return res.status(404).json({ error: 'Demande introuvable' });
-    if (req_.vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 'admin') {
+    if (req_.vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 0) {
       if (req_.createdById !== req.user.id) return res.status(403).json({ error: 'Accès refusé' });
     }
     res.json(req_);
@@ -121,7 +121,7 @@ interventionsRouter.patch(
       include: { vehicle: true },
     });
     if (!ir) return res.status(404).json({ error: 'Demande introuvable' });
-    if (ir.vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 'admin') {
+    if (ir.vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 0) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     const data = {};

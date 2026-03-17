@@ -43,7 +43,7 @@ vehicle3dRouter.post(
   param('vehicleId').isString(),
   loadVehicle,
   async (req, res, next) => {
-    if (req.user.role !== 'supervisor' && req.user.role !== 'admin') {
+    if (req.user.role !== 1 && req.user.role !== 0) {
       return res.status(403).json({ error: 'Droits superviseur requis' });
     }
     next();
@@ -86,7 +86,7 @@ vehicle3dRouter.delete(
   param('vehicleId').isString(),
   loadVehicle,
   async (req, res) => {
-    if (req.user.role !== 'supervisor' && req.user.role !== 'admin') {
+    if (req.user.role !== 1 && req.user.role !== 0) {
       return res.status(403).json({ error: 'Droits superviseur requis' });
     }
     await prisma.vehicle3D.deleteMany({ where: { vehicleId: req.vehicle.id } });

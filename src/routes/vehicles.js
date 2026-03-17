@@ -16,7 +16,7 @@ vehiclesRouter.get(
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const where = {};
-    if (req.user.role !== 'admin') where.hospitalId = req.user.hospitalId;
+    if (req.user.role !== 0) where.hospitalId = req.user.hospitalId;
     else if (req.query.hospitalId) where.hospitalId = req.query.hospitalId;
     if (req.query.vehicleTypeId) where.vehicleTypeId = req.query.vehicleTypeId;
     if (req.query.available === 'true') {
@@ -74,7 +74,7 @@ vehiclesRouter.post(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-    if (req.user.hospitalId !== req.body.hospitalId && req.user.role !== 'admin') {
+    if (req.user.hospitalId !== req.body.hospitalId && req.user.role !== 0) {
       return res.status(403).json({ error: 'Création véhicule pour un autre établissement non autorisée' });
     }
     const vehicle = await prisma.vehicle.create({

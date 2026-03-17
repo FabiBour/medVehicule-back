@@ -17,11 +17,11 @@ assistanceRouter.get(
     if (req.query.vehicleId) {
       const v = await prisma.vehicle.findUnique({ where: { id: req.query.vehicleId } });
       if (!v) return res.json([]);
-      if (v.hospitalId !== req.user.hospitalId && req.user.role !== 'admin') return res.status(403).json({ error: 'Accès refusé' });
+      if (v.hospitalId !== req.user.hospitalId && req.user.role !== 0) return res.status(403).json({ error: 'Accès refusé' });
       where.vehicleId = req.query.vehicleId;
     } else {
       const vehicles = await prisma.vehicle.findMany({
-        where: req.user.role !== 'admin' ? { hospitalId: req.user.hospitalId } : {},
+        where: req.user.role !== 0 ? { hospitalId: req.user.hospitalId } : {},
         select: { id: true },
       });
       where.vehicleId = { in: vehicles.map((x) => x.id) };

@@ -6,7 +6,7 @@ import { prisma } from '../db.js';
  */
 export async function canUseVehicleType(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
-  if (req.user.role === 'admin' || req.user.role === 'supervisor') return next();
+  if (req.user.role === 0 || req.user.role === 1) return next(); // admin ou gestionnaire
 
   const vehicleTypeId = req.body?.vehicleTypeId || req.params?.vehicleTypeId;
   let resolved = vehicleTypeId;
@@ -44,9 +44,10 @@ export async function loadVehicle(req, res, next) {
     include: { vehicleType: true, hospital: true },
   });
   if (!vehicle) return res.status(404).json({ error: 'Véhicule introuvable' });
+  req.vehicle = vehicle;
+  if (req.user.role === 0) return next(); // admin : accès à tous les véhicules
   if (vehicle.hospitalId !== req.user.hospitalId) {
     return res.status(403).json({ error: 'Véhicule d\'un autre établissement' });
   }
-  req.vehicle = vehicle;
   next();
 }
