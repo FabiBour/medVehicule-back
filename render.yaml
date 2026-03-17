@@ -4,6 +4,7 @@
 services:
   - type: web
     runtime: node
+    plan: free
     name: medvehicule-api
 
     # Build & Start
