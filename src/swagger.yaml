@@ -1,7 +1,10 @@
 openapi: 3.0.3
 info:
   title: MedVehicule API
-  description: API REST de gestion de flotte de véhicules hospitaliers
+  description: |
+    API REST de gestion de flotte de véhicules hospitaliers.
+    Authentification via Firebase Auth : le client envoie le Firebase ID token dans le header Authorization Bearer.
+    Rôles : 0=admin, 1=gestionnaire, 2=usager.
   version: 1.0.0
 
 servers:
@@ -13,7 +16,8 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
+      bearerFormat: Firebase ID Token
+      description: Token Firebase (ID token) obtenu après connexion via Firebase Auth
   schemas:
     Hospital:
       type: object
@@ -43,12 +47,12 @@ components:
     User:
       type: object
       properties:
-        id: { type: string }
+        id: { type: string, description: "Firebase UID" }
         email: { type: string }
         firstName: { type: string }
         lastName: { type: string }
-        role: { type: string, enum: [staff, supervisor, admin] }
-        hospitalId: { type: string }
+        role: { type: integer, enum: [0, 1, 2], description: "0=admin, 1=gestionnaire, 2=usager" }
+        hospitalId: { type: string, nullable: true }
     Booking:
       type: object
       properties:
@@ -94,23 +98,30 @@ paths:
       tags: [Système]
       responses:
         '200': { description: OK }
-  /api/auth/login:
+  /api/auth/register-profil:
     post:
-      summary: Connexion
+      summary: Créer le profil après inscription Firebase
+      description: |
+        Appelé après que l'utilisateur a créé un compte via Firebase Auth (createUserWithEmailAndPassword).
+        Le rôle est automatiquement 2 (usager).
+        Header requis : Authorization Bearer &lt;firebase-id-token&gt;
       tags: [Authentification]
+      security: [{ bearerAuth: [] }]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email, password]
+              required: [firstName, lastName]
               properties:
-                email: { type: string, format: email }
-                password: { type: string }
+                firstName: { type: string }
+                lastName: { type: string }
+                hospitalId: { type: string, nullable: true }
       responses:
-        '200': { description: Token et utilisateur }
-        '401': { description: Identifiants incorrects }
+        '201': { description: Profil créé }
+        '401': { description: Token Firebase requis ou invalide }
+        '409': { description: Profil déjà créé }
   /api/auth/me:
     get:
       summary: Utilisateur courant
@@ -326,7 +337,8 @@ paths:
       responses:
         '200': { description: Liste }
     post:
-      summary: Créer un utilisateur
+      summary: Créer un utilisateur (admin uniquement)
+      description: Crée l'utilisateur dans Firebase Auth et le profil dans Firestore
       tags: [Utilisateurs]
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -341,9 +353,31 @@ paths:
                 password: { type: string, minLength: 6 }
                 firstName: { type: string }
                 lastName: { type: string }
-                role: { type: string, enum: [staff, supervisor, admin] }
+                role: { type: integer, enum: [0, 1, 2], description: "0=admin, 1=gestionnaire, 2=usager" }
       responses:
         '201': { description: Créé }
+        '403': { description: Droits admin requis }
+  /api/users/{id}/role:
+    patch:
+      summary: Modifier le rôle d'un utilisateur (admin uniquement)
+      tags: [Utilisateurs]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { type: integer, enum: [0, 1, 2] }
+      responses:
+        '200': { description: OK }
+        '403': { description: Droits admin requis }
   /api/authorizations:
     get:
       summary: Liste des droits d'utilisation

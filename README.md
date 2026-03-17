@@ -5,14 +5,14 @@ API REST Node.js pour la gestion de la flotte de véhicules d’un hôpital : lo
 ## Fonctionnalités
 
 - **Établissements et flotte** : hôpitaux, types de véhicules (voiture, ambulance, hélicoptère…), véhicules.
-- **Droits d’utilisation** : les superviseurs accordent aux personnels le droit d’utiliser certains types de véhicules.
+- **Droits d’utilisation** : les gestionnaires accordent aux usagers le droit d’utiliser certains types de véhicules.
 - **Location / prise** : réservation, démarrage (relevé compteur départ), restitution (relevé compteur fin).
 - **Photos** : état des lieux (avant/après), signalements avec photos.
 - **Signalements** : rayures, impacts, pannes ; suivi de statut (ouvert, en cours, clôturé).
 - **Relevé compteur** : enregistrement des kilométrages (prise, restitution, entretien).
 - **Entretien** : contrôle technique, révision, réparation ; garages partenaires ; contrats d’entretien.
 - **Demande d’assistance** : panne, accident, dépannage ; suivi (ouverte, en route, traitée).
-- **Demandes d’intervention** : le personnel crée des demandes pour le superviseur ; suivi avec historique de statut.
+- **Demandes d’intervention** : les usagers créent des demandes pour le gestionnaire ; suivi avec historique de statut.
 - **Historique** : prises, interventions, entretiens par véhicule.
 - **Modèle 3D** : upload et URL d’un fichier glTF/GLB par véhicule (visualisation iOS, Android, Web).
 
@@ -96,6 +96,13 @@ Comptes de test après seed :
 - Photos : `uploads/photos/`
 - Modèles 3D : `uploads/models3d/`
 - Base de données : **Firebase Firestore** (NoSQL document database).
+
+## Tests
+
+```bash
+npm run test        # Exécuter les tests unitaires
+npm run test:watch  # Mode watch
+```
 
 ## Licence
 
