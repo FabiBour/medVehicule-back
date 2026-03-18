@@ -22,13 +22,19 @@ authRouter.post(
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    if (!FIREBASE_WEB_API_KEY) {
+    const apiKey = (process.env.FIREBASE_WEB_API_KEY || '').trim();
+    if (!apiKey) {
       return res.status(503).json({ error: 'FIREBASE_WEB_API_KEY non configuré' });
+    }
+    if (!apiKey.startsWith('AIza')) {
+      return res.status(503).json({
+        error: 'FIREBASE_WEB_API_KEY invalide : utilisez la clé API Web (format AIzaSy...), pas le private_key_id. Firebase Console > Paramètres du projet > Général > Clés API Web.',
+      });
     }
 
     try {
       const resFirebase = await fetch(
-        `${FIREBASE_AUTH_URL}:signInWithPassword?key=${FIREBASE_WEB_API_KEY}`,
+        `${FIREBASE_AUTH_URL}:signInWithPassword?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -110,7 +116,8 @@ authRouter.post(
         hospital = h ? { id: h.id, name: h.name } : null;
       }
 
-      if (!FIREBASE_WEB_API_KEY) {
+      const apiKey = (process.env.FIREBASE_WEB_API_KEY || '').trim();
+      if (!apiKey || !apiKey.startsWith('AIza')) {
         return res.status(201).json({
           id: user.id,
           email: user.email,
@@ -124,7 +131,7 @@ authRouter.post(
       }
 
       const resFirebase = await fetch(
-        `${FIREBASE_AUTH_URL}:signInWithPassword?key=${FIREBASE_WEB_API_KEY}`,
+        `${FIREBASE_AUTH_URL}:signInWithPassword?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
