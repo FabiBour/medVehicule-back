@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "MedVehicule API",
-    "description": "API REST de gestion de flotte de véhicules hospitaliers.\n\nAuthentification : Firebase ID token dans Authorization Bearer.\nRôles : 0=admin, 1=gestionnaire, 2=usager.\n\nSwagger : https://medvehicule-back.onrender.com/api-docs",
+    "description": "API REST de gestion de flotte de véhicules hospitaliers.\n\nAuthentification : Firebase ID token dans Authorization Bearer.\nRôles : 0=usager, 1=gestionnaire, 2=admin, 3=super_admin.\n\nSwagger : https://medvehicule-back.onrender.com/api-docs",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -267,7 +267,7 @@
               "raw": "{\n  \"hospitalId\": \"{{hospitalId}}\",\n  \"email\": \"nouveau@chu.fr\",\n  \"password\": \"password123\",\n  \"firstName\": \"Marie\",\n  \"lastName\": \"Nouvelle\",\n  \"role\": 1\n}"
             },
             "url": "{{baseUrl}}/api/users",
-            "description": "role: 0=admin, 1=gestionnaire, 2=usager"
+            "description": "role: 0=usager, 1=gestionnaire, 2=admin, 3=super_admin"
           }
         },
         {

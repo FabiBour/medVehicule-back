@@ -158,16 +158,29 @@ export const firestoreDb = {
 
   user: {
     async findMany({ where = {}, select }) {
-      let q = col('users');
+      let arr = [];
       if (where.hospitalId !== undefined) {
         if (where.hospitalId === null) {
-          q = q.where('hospitalId', '==', null);
+          const snap = await col('users').where('hospitalId', '==', null).get();
+          arr = docsToArray(snap);
         } else {
-          q = q.where('hospitalId', '==', where.hospitalId);
+          const [byHospitalId, byHospitalIds] = await Promise.all([
+            col('users').where('hospitalId', '==', where.hospitalId).get(),
+            col('users').where('hospitalIds', 'array-contains', where.hospitalId).get(),
+          ]);
+          const seen = new Set();
+          for (const d of byHospitalId.docs) {
+            arr.push(docToObject(d));
+            seen.add(d.id);
+          }
+          for (const d of byHospitalIds.docs) {
+            if (!seen.has(d.id)) arr.push(docToObject(d));
+          }
         }
+      } else {
+        const snap = await col('users').get();
+        arr = docsToArray(snap);
       }
-      const snap = await q.get();
-      let arr = docsToArray(snap);
       if (select?.hospital) {
         for (const u of arr) {
           u.hospital = null;
@@ -206,6 +219,7 @@ export const firestoreDb = {
       const { uid: _u, passwordHash: _p, ...rest } = data;
       const payload = {
         ...rest,
+        isDeactivated: rest.isDeactivated ?? false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

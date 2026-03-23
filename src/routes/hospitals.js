@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../db.js';
-import { requireAuth, requireSupervisor, sameHospital } from '../middleware/auth.js';
+import { requireAuth, requireHospitalManager } from '../middleware/auth.js';
 
 export const hospitalsRouter = Router();
 
@@ -23,7 +23,7 @@ hospitalsRouter.get('/:id', requireAuth, param('id').isString(), async (req, res
     },
   });
   if (!hospital) return res.status(404).json({ error: 'Établissement introuvable' });
-  if (req.user.hospitalId !== hospital.id && req.user.role !== 0) {
+  if (req.user.hospitalId !== hospital.id && req.user.role !== 2 && req.user.role !== 3) {
     return res.status(403).json({ error: 'Accès refusé' });
   }
   res.json(hospital);
@@ -32,7 +32,7 @@ hospitalsRouter.get('/:id', requireAuth, param('id').isString(), async (req, res
 hospitalsRouter.post(
   '/',
   requireAuth,
-  requireSupervisor,
+  requireHospitalManager,
   body('name').trim().notEmpty(),
   body('address').optional().trim(),
   async (req, res) => {
@@ -48,7 +48,7 @@ hospitalsRouter.post(
 hospitalsRouter.patch(
   '/:id',
   requireAuth,
-  requireSupervisor,
+  requireHospitalManager,
   param('id').isString(),
   body('name').optional().trim().notEmpty(),
   body('address').optional().trim(),
@@ -57,7 +57,7 @@ hospitalsRouter.patch(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const hospital = await prisma.hospital.findUnique({ where: { id: req.params.id } });
     if (!hospital) return res.status(404).json({ error: 'Établissement introuvable' });
-    if (req.user.hospitalId !== hospital.id && req.user.role !== 0) {
+    if (req.user.hospitalId !== hospital.id && req.user.role !== 2 && req.user.role !== 3) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     const updated = await prisma.hospital.update({

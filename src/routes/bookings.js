@@ -17,7 +17,7 @@ bookingsRouter.get(
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const where = {};
-    if (req.user.role !== 1 && req.user.role !== 0) {
+    if (req.user.role !== 1 && req.user.role !== 2) {
       where.userId = req.user.id;
     } else {
       if (req.query.userId) where.userId = req.query.userId;
@@ -51,7 +51,7 @@ bookingsRouter.get(
     if (!b) return res.status(404).json({ error: 'Réservation introuvable' });
     const isOwner = b.userId === req.user.id;
     const sameHospital = req.user.hospitalId === b.vehicle.hospitalId;
-    const isAdmin = req.user.role === 0;
+    const isAdmin = req.user.role === 2;
     if (!isOwner && !sameHospital && !isAdmin) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
@@ -66,7 +66,7 @@ async function loadVehicleFromBody(req, res, next) {
     include: { vehicleType: true, hospital: true },
   });
   if (!vehicle) return res.status(404).json({ error: 'Véhicule introuvable' });
-  if (req.user.role !== 0 && vehicle.hospitalId !== req.user.hospitalId) {
+  if (req.user.role !== 2 && vehicle.hospitalId !== req.user.hospitalId) {
     return res.status(403).json({ error: 'Véhicule d\'un autre établissement' });
   }
   req.vehicle = vehicle;
@@ -172,7 +172,7 @@ bookingsRouter.patch(
   async (req, res) => {
     const b = await prisma.booking.findUnique({ where: { id: req.params.id } });
     if (!b) return res.status(404).json({ error: 'Réservation introuvable' });
-    if (b.userId !== req.user.id && req.user.role !== 1 && req.user.role !== 0) {
+    if (b.userId !== req.user.id && req.user.role !== 1 && req.user.role !== 2) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     if (b.status === 'completed') return res.status(400).json({ error: 'Réservation déjà terminée' });

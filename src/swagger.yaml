@@ -4,7 +4,8 @@ info:
   description: |
     API REST de gestion de flotte de véhicules hospitaliers.
     Authentification via Firebase Auth : le client envoie le Firebase ID token dans le header Authorization Bearer.
-    Rôles : 0=admin, 1=gestionnaire, 2=usager.
+    Rôles : 0=usager, 1=gestionnaire, 2=admin, 3=super_admin.
+    Un utilisateur avec isDeactivated=true ne peut pas se connecter (401).
   version: 1.0.0
 
 servers:
@@ -51,8 +52,13 @@ components:
         email: { type: string }
         firstName: { type: string }
         lastName: { type: string }
-        role: { type: integer, enum: [0, 1, 2], description: "0=admin, 1=gestionnaire, 2=usager" }
+        role: { type: integer, enum: [0, 1, 2, 3], description: "0=usager, 1=gestionnaire, 2=admin, 3=super_admin" }
+        isDeactivated: { type: boolean, description: "Compte désactivé (ne peut plus se connecter)" }
         hospitalId: { type: string, nullable: true }
+        hospitalIds: { type: array, items: { type: string }, description: "Hôpitaux affectés (multi-affectation)" }
+        hospital: { $ref: '#/components/schemas/Hospital' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     Booking:
       type: object
       properties:
@@ -127,13 +133,44 @@ paths:
                   localId: { type: string }
         '401': { description: Email ou mot de passe incorrect }
         '503': { description: FIREBASE_WEB_API_KEY non configuré }
+  /api/auth/refresh:
+    post:
+      summary: Reconnexion avec refresh token
+      description: |
+        Échange le refreshToken contre un nouvel idToken et refreshToken.
+        À appeler lorsque l'idToken expire (typiquement après 1h).
+        Retourne le même format que login.
+      tags: [Authentification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Tokens renouvelés
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idToken: { type: string }
+                  refreshToken: { type: string }
+                  expiresIn: { type: string }
+                  localId: { type: string }
+        '401': { description: Refresh token expiré ou compte désactivé }
+        '503': { description: FIREBASE_WEB_API_KEY non configuré }
   /api/auth/register:
     post:
       summary: Création de compte avec email et mot de passe
       description: |
         Crée l'utilisateur dans Firebase Auth et le profil dans Firestore.
         Retourne l'idToken pour connexion immédiate.
-        Rôle attribué : 2 (usager).
+        Rôle attribué : 0 (usager).
       tags: [Authentification]
       requestBody:
         required: true
@@ -150,34 +187,48 @@ paths:
                 hospitalId: { type: string, nullable: true }
       responses:
         '201':
-          description: Compte créé (avec idToken si FIREBASE_WEB_API_KEY configuré)
+          description: Compte créé (même format que login)
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  idToken: { type: string }
+                  idToken: { type: string, description: "Token à utiliser dans Authorization Bearer" }
                   refreshToken: { type: string }
                   expiresIn: { type: string }
-                  user: { $ref: '#/components/schemas/User' }
+                  localId: { type: string }
         '409': { description: Email déjà utilisé }
         '400': { description: Données invalides (mot de passe trop faible, etc.) }
   /api/auth/me:
     get:
       summary: Utilisateur courant
+      description: Retourne le profil de l'utilisateur connecté (id, email, firstName, lastName, role, isDeactivated, hospitalId, hospitalIds, hospital).
       tags: [Authentification]
       security: [{ bearerAuth: [] }]
       responses:
-        '200': { description: Utilisateur }
+        '200':
+          description: Profil utilisateur
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { description: Token manquant, invalide, expiré ou compte désactivé }
   /api/hospitals:
     get:
       summary: Liste des établissements
+      description: Tous les utilisateurs authentifiés. Admin et super_admin voient tous les établissements.
       tags: [Établissements]
       security: [{ bearerAuth: [] }]
       responses:
-        '200': { description: Liste }
+        '200':
+          description: Liste des établissements
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Hospital' }
     post:
       summary: Créer un établissement
+      description: Requiert admin (2), gestionnaire (1) ou super_admin (3).
       tags: [Établissements]
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -191,6 +242,8 @@ paths:
                 address: { type: string }
       responses:
         '201': { description: Créé }
+        '401': { description: Token manquant, invalide ou compte désactivé }
+        '403': { description: Droits gestionnaire/admin/super_admin requis }
   /api/hospitals/{id}:
     get:
       summary: Détail établissement
@@ -203,6 +256,8 @@ paths:
           schema: { type: string }
       responses:
         '200': { description: OK }
+        '401': { description: Token manquant, invalide ou compte désactivé }
+        '403': { description: Accès refusé (établissement d'un autre hôpital) }
     patch:
       summary: Modifier établissement
       tags: [Établissements]
@@ -372,13 +427,20 @@ paths:
   /api/users:
     get:
       summary: Liste des utilisateurs
+      description: Admin et super_admin voient tous les utilisateurs. Gestionnaire et usager voient ceux de leur établissement.
       tags: [Utilisateurs]
       security: [{ bearerAuth: [] }]
       responses:
-        '200': { description: Liste }
+        '200':
+          description: Liste des utilisateurs
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/User' }
     post:
       summary: Créer un utilisateur (admin uniquement)
-      description: Crée l'utilisateur dans Firebase Auth et le profil dans Firestore
+      description: "Crée l'utilisateur dans Firebase Auth et le profil Firestore. Requiert role 2 (admin). Rôles créables 0, 1, 2, 3."
       tags: [Utilisateurs]
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -393,13 +455,15 @@ paths:
                 password: { type: string, minLength: 6 }
                 firstName: { type: string }
                 lastName: { type: string }
-                role: { type: integer, enum: [0, 1, 2], description: "0=admin, 1=gestionnaire, 2=usager" }
+                role: { type: integer, enum: [0, 1, 2, 3], description: "0=usager, 1=gestionnaire, 2=admin, 3=super_admin" }
       responses:
         '201': { description: Créé }
+        '401': { description: Token manquant, invalide ou compte désactivé }
         '403': { description: Droits admin requis }
   /api/users/{id}/role:
     patch:
       summary: Modifier le rôle d'un utilisateur (admin uniquement)
+      description: Requiert role 2 (admin).
       tags: [Utilisateurs]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -414,10 +478,58 @@ paths:
               type: object
               required: [role]
               properties:
-                role: { type: integer, enum: [0, 1, 2] }
+                role: { type: integer, enum: [0, 1, 2, 3] }
       responses:
         '200': { description: OK }
         '403': { description: Droits admin requis }
+  /api/users/{id}/deactivate:
+    patch:
+      summary: Activer ou désactiver un utilisateur (admin ou super_admin)
+      description: Requiert role 2 (admin) ou 3 (super_admin). Un admin ne peut pas désactiver son propre compte.
+      tags: [Utilisateurs]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isDeactivated]
+              properties:
+                isDeactivated: { type: boolean }
+      responses:
+        '200': { description: OK }
+        '400': { description: Impossible de désactiver son propre compte }
+        '403': { description: Droits administrateur requis }
+        '404': { description: Utilisateur introuvable }
+  /api/users/{id}/hospitals:
+    patch:
+      summary: Affecter un usager ou gestionnaire à un ou plusieurs hôpitaux (super_admin uniquement)
+      description: Requiert role 3 (super_admin). Seuls les usagers (0) et gestionnaires (1) peuvent être affectés. hospitalId est défini sur le premier élément de hospitalIds.
+      tags: [Utilisateurs]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hospitalIds]
+              properties:
+                hospitalIds: { type: array, items: { type: string }, minItems: 1 }
+      responses:
+        '200': { description: OK }
+        '400': { description: Utilisateur non éligible ou hôpital introuvable }
+        '403': { description: Droits super administrateur requis }
+        '404': { description: Utilisateur introuvable }
   /api/authorizations:
     get:
       summary: Liste des droits d'utilisation

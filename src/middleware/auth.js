@@ -23,6 +23,9 @@ export async function requireAuth(req, res, next) {
         error: 'Profil utilisateur introuvable. Appelez POST /api/auth/register pour créer votre compte.',
       });
     }
+    if (user.isDeactivated === true) {
+      return res.status(401).json({ error: 'Compte désactivé. Contactez l\'administrateur.' });
+    }
     req.userId = uid;
     req.user = user;
     return next();
@@ -51,7 +54,7 @@ export async function optionalAuth(req, res, next) {
       where: { id: uid },
       include: { hospital: true },
     });
-    if (user) {
+    if (user && !user.isDeactivated) {
       req.userId = uid;
       req.user = user;
     }
@@ -62,11 +65,11 @@ export async function optionalAuth(req, res, next) {
 }
 
 /**
- * Restreint l'accès aux rôles gestionnaire (1) et admin (0).
+ * Restreint l'accès aux rôles gestionnaire (1) et admin (2).
  */
 export function requireGestionnaire(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
-  if (req.user.role !== 0 && req.user.role !== 1) {
+  if (req.user.role !== 2 && req.user.role !== 1) {
     return res.status(403).json({ error: 'Droits gestionnaire requis' });
   }
   next();
@@ -76,12 +79,35 @@ export function requireGestionnaire(req, res, next) {
 export const requireSupervisor = requireGestionnaire;
 
 /**
- * Restreint l'accès aux admins uniquement (role 0).
+ * Restreint l'accès aux admins uniquement (role 2).
  */
 export function requireAdmin(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
-  if (req.user.role !== 0) {
+  if (req.user.role !== 2) {
     return res.status(403).json({ error: 'Droits administrateur requis' });
+  }
+  next();
+}
+
+/**
+ * Restreint l'accès aux super admins uniquement (role 3).
+ * Gère les hôpitaux et l'affectation des usagers/gestionnaires aux hôpitaux.
+ */
+export function requireSuperAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
+  if (req.user.role !== 3) {
+    return res.status(403).json({ error: 'Droits super administrateur requis' });
+  }
+  next();
+}
+
+/**
+ * Restreint l'accès à la gestion des hôpitaux : admin (2), gestionnaire (1) ou super_admin (3).
+ */
+export function requireHospitalManager(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
+  if (req.user.role !== 2 && req.user.role !== 1 && req.user.role !== 3) {
+    return res.status(403).json({ error: 'Droits de gestion des établissements requis' });
   }
   next();
 }
@@ -93,7 +119,7 @@ export function sameHospital(hospitalIdKey = 'hospitalId') {
   return (req, res, next) => {
     const id = req.params[hospitalIdKey] || req.body[hospitalIdKey] || req.query[hospitalIdKey];
     if (!id) return next();
-    if (req.user.role === 0) return next(); // admin bypass
+    if (req.user.role === 2 || req.user.role === 3) return next(); // admin ou super_admin bypass
     if (req.user.hospitalId !== id) {
       return res.status(403).json({ error: 'Accès à un autre établissement non autorisé' });
     }

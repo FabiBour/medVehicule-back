@@ -25,6 +25,84 @@ describe('POST /api/auth/login', () => {
   });
 });
 
+describe('POST /api/auth/refresh', () => {
+  it('retourne 503 si FIREBASE_WEB_API_KEY non configuré', async () => {
+    const prev = process.env.FIREBASE_WEB_API_KEY;
+    delete process.env.FIREBASE_WEB_API_KEY;
+    const res = await request(app)
+      .post('/api/auth/refresh')
+      .send({ refreshToken: 'fake-refresh-token' });
+    if (prev) process.env.FIREBASE_WEB_API_KEY = prev;
+    expect(res.status).toBe(503);
+    expect(res.body.error).toContain('FIREBASE_WEB_API_KEY');
+  });
+
+  it('retourne 400 si refreshToken manquant', async () => {
+    process.env.FIREBASE_WEB_API_KEY = 'AIzaSyFakeKey';
+    const res = await request(app).post('/api/auth/refresh').send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 200 avec nouveaux tokens si refresh valide', async () => {
+    process.env.FIREBASE_WEB_API_KEY = 'AIzaSyFakeKeyForTest';
+    mockDb.user.findUnique.mockResolvedValueOnce({
+      id: 'test-uid-123',
+      isDeactivated: false,
+    });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          id_token: 'new-id-token',
+          refresh_token: 'new-refresh-token',
+          expires_in: '3600',
+          user_id: 'test-uid-123',
+        }),
+    });
+
+    const res = await request(app)
+      .post('/api/auth/refresh')
+      .send({ refreshToken: 'old-refresh-token' });
+
+    fetchMock.mockRestore();
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      idToken: 'new-id-token',
+      refreshToken: 'new-refresh-token',
+      expiresIn: '3600',
+      localId: 'test-uid-123',
+    });
+  });
+
+  it('retourne 401 si compte désactivé', async () => {
+    process.env.FIREBASE_WEB_API_KEY = 'AIzaSyFakeKeyForTest';
+    mockDb.user.findUnique.mockResolvedValueOnce({
+      id: 'test-uid-123',
+      isDeactivated: true,
+    });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          id_token: 'new-id-token',
+          refresh_token: 'new-refresh-token',
+          expires_in: '3600',
+          user_id: 'test-uid-123',
+        }),
+    });
+
+    const res = await request(app)
+      .post('/api/auth/refresh')
+      .send({ refreshToken: 'old-refresh-token' });
+
+    fetchMock.mockRestore();
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toContain('désactivé');
+  });
+});
+
 describe('POST /api/auth/register', () => {
   beforeEach(() => {
     createUserMock.mockResolvedValue({ uid: 'new-uid-789', email: 'nouveau@example.com' });
@@ -39,14 +117,27 @@ describe('POST /api/auth/register', () => {
     expect(res.status).toBe(400);
   });
 
-  it('crée le compte et retourne 201', async () => {
+  it('crée le compte et retourne 201 avec le même format que login', async () => {
     mockDb.user.create.mockResolvedValueOnce({
       id: 'new-uid-789',
       email: 'nouveau@example.com',
       firstName: 'Marie',
       lastName: 'Martin',
-      role: 2,
+      role: 0,
       hospitalId: null,
+    });
+
+    const prevKey = process.env.FIREBASE_WEB_API_KEY;
+    process.env.FIREBASE_WEB_API_KEY = 'AIzaSyFakeKeyForTest';
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          idToken: 'fake-id-token',
+          refreshToken: 'fake-refresh-token',
+          expiresIn: '3600',
+          localId: 'new-uid-789',
+        }),
     });
 
     const res = await request(app)
@@ -58,12 +149,15 @@ describe('POST /api/auth/register', () => {
         lastName: 'Martin',
       });
 
+    fetchMock.mockRestore();
+    if (prevKey) process.env.FIREBASE_WEB_API_KEY = prevKey;
+
     expect(res.status).toBe(201);
-    expect(res.body.user || res.body).toMatchObject({
-      email: 'nouveau@example.com',
-      firstName: 'Marie',
-      lastName: 'Martin',
-      role: 2,
+    expect(res.body).toMatchObject({
+      idToken: 'fake-id-token',
+      refreshToken: 'fake-refresh-token',
+      expiresIn: '3600',
+      localId: 'new-uid-789',
     });
   });
 
@@ -109,6 +203,6 @@ describe('GET /api/auth/me', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.email).toBe('test@example.com');
-    expect(res.body.role).toBe(0);
+    expect(res.body.role).toBe(2);
   });
 });

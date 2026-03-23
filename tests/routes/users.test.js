@@ -17,7 +17,7 @@ describe('GET /api/users', () => {
         email: 'test@example.com',
         firstName: 'Test',
         lastName: 'User',
-        role: 0,
+        role: 2,
         hospitalId: 'hosp-1',
         hospital: { id: 'hosp-1', name: 'CHU Test' },
       },
@@ -66,7 +66,7 @@ describe('PATCH /api/users/:id/role', () => {
       email: 'test@example.com',
       firstName: 'Test',
       lastName: 'User',
-      role: 0,
+      role: 2,
       hospitalId: 'hosp-1',
       hospital: { id: 'hosp-1', name: 'CHU Test' },
     };
@@ -75,7 +75,7 @@ describe('PATCH /api/users/:id/role', () => {
       .mockResolvedValueOnce({
         id: 'user-to-update',
         email: 'user@chu.fr',
-        role: 2,
+        role: 0,
       });
     mockDb.user.update.mockResolvedValueOnce({
       id: 'user-to-update',

@@ -10,7 +10,7 @@ authorizationsRouter.get(
   '/',
   requireAuth,
   async (req, res) => {
-    const where = req.user.role === 0 ? {} : { user: { hospitalId: req.user.hospitalId } };
+    const where = req.user.role === 2 ? {} : { user: { hospitalId: req.user.hospitalId } };
     const list = await prisma.authorization.findMany({
       where,
       include: {
@@ -35,7 +35,7 @@ authorizationsRouter.get(
       include: { hospital: true },
     });
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
-    if (user.hospitalId !== req.user.hospitalId && req.user.role !== 0) {
+    if (user.hospitalId !== req.user.hospitalId && req.user.role !== 2) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     const auths = await prisma.authorization.findMany({
@@ -59,7 +59,7 @@ authorizationsRouter.post(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const user = await prisma.user.findUnique({ where: { id: req.body.userId } });
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
-    if (user.hospitalId !== req.user.hospitalId && req.user.role !== 0) {
+    if (user.hospitalId !== req.user.hospitalId && req.user.role !== 2) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     const existing = await prisma.authorization.findUnique({
@@ -105,7 +105,7 @@ authorizationsRouter.post(
       include: { user: true },
     });
     if (!auth) return res.status(404).json({ error: 'Autorisation introuvable' });
-    if (auth.user.hospitalId !== req.user.hospitalId && req.user.role !== 0) {
+    if (auth.user.hospitalId !== req.user.hospitalId && req.user.role !== 2) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     await prisma.authorization.update({

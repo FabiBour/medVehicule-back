@@ -8,9 +8,10 @@
 import 'dotenv/config';
 import admin from 'firebase-admin';
 
-const ROLE_ADMIN = 0;
+const ROLE_USAGER = 0;
 const ROLE_GESTIONNAIRE = 1;
-const ROLE_USAGER = 2;
+const ROLE_ADMIN = 2;
+const ROLE_SUPER_ADMIN = 3;
 
 function initFirebase() {
   if (admin.apps.length > 0) return admin.firestore();
@@ -87,9 +88,9 @@ async function main() {
     typeIds.push(ref.id);
   }
 
-  // Utilisateurs Firebase Auth + Firestore (rôle 0=admin, 1=gestionnaire, 2=usager)
+  // Utilisateurs Firebase Auth + Firestore (rôle 0=usager, 1=gestionnaire, 2=admin, 3=super_admin)
   const password = 'password123';
-  let supervisorUid, staffUid;
+  let supervisorUid, staffUid, superAdminUid;
 
   try {
     const supervisor = await admin.auth().createUser({
@@ -105,13 +106,22 @@ async function main() {
       displayName: 'Jean Usager',
     });
     staffUid = staff.uid;
+
+    const superAdmin = await admin.auth().createUser({
+      email: 'superadmin@chu.fr',
+      password,
+      displayName: 'Super Admin',
+    });
+    superAdminUid = superAdmin.uid;
   } catch (err) {
     if (err.code === 'auth/email-already-exists') {
       console.log('Utilisateurs Firebase déjà existants. Supprimez-les dans la console Firebase si besoin.');
-      const existing = await admin.auth().getUsersByEmail(['admin@chu.fr', 'usager@chu.fr']);
-      supervisorUid = existing.users[0]?.uid;
-      staffUid = existing.users[1]?.uid;
-      if (!supervisorUid || !staffUid) throw new Error('Impossible de récupérer les utilisateurs existants');
+      const existing = await admin.auth().getUsersByEmail(['admin@chu.fr', 'usager@chu.fr', 'superadmin@chu.fr']);
+      const byEmail = (e) => existing.users.find((u) => u.email === e)?.uid;
+      supervisorUid = byEmail('admin@chu.fr');
+      staffUid = byEmail('usager@chu.fr');
+      superAdminUid = byEmail('superadmin@chu.fr');
+      if (!supervisorUid || !staffUid || !superAdminUid) throw new Error('Impossible de récupérer les utilisateurs existants');
     } else throw err;
   }
 
@@ -121,6 +131,7 @@ async function main() {
     lastName: 'Admin',
     role: ROLE_ADMIN,
     hospitalId,
+    isDeactivated: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
@@ -131,6 +142,18 @@ async function main() {
     lastName: 'Usager',
     role: ROLE_USAGER,
     hospitalId,
+    isDeactivated: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  await db.collection('users').doc(superAdminUid).set({
+    email: 'superadmin@chu.fr',
+    firstName: 'Super',
+    lastName: 'Admin',
+    role: ROLE_SUPER_ADMIN,
+    hospitalId: null,
+    isDeactivated: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
@@ -156,7 +179,7 @@ async function main() {
 
   console.log('Seed OK:', {
     hospital: 'CHU Centre',
-    users: 'admin@chu.fr (role 0), usager@chu.fr (role 2)',
+    users: 'admin@chu.fr (role 2), usager@chu.fr (role 0), superadmin@chu.fr (role 3)',
     vehicle: 'AB-123-CD',
     password: 'password123',
   });

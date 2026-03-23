@@ -51,7 +51,10 @@ L'authentification utilise **Firebase Auth**. Deux modes :
 
 - **POST /api/auth/login** — Connexion avec email et mot de passe  
   Body : `{ "email", "password" }`  
-  Retourne : `{ "idToken", "refreshToken", "expiresIn" }` — utiliser `idToken` dans `Authorization: Bearer <idToken>`
+  Retourne : `{ "idToken", "refreshToken", "expiresIn", "localId" }` — utiliser `idToken` dans `Authorization: Bearer <idToken>`
+- **POST /api/auth/refresh** — Reconnexion avec refresh token (quand idToken expire)  
+  Body : `{ "refreshToken" }`  
+  Retourne : `{ "idToken", "refreshToken", "expiresIn", "localId" }` — même format que login
 
 - **POST /api/auth/register** — Création de compte avec email et mot de passe  
   Body : `{ "email", "password", "firstName", "lastName", "hospitalId?" }`  
@@ -61,11 +64,12 @@ L'authentification utilise **Firebase Auth**. Deux modes :
 - **GET /api/auth/me** — Profil utilisateur courant  
   Header : `Authorization: Bearer <firebase-id-token>`
 
-**Rôles** : 0 = admin, 1 = gestionnaire, 2 = usager. Seuls les admins peuvent modifier les rôles (PATCH /api/users/:id/role).
+**Rôles** : 0 = usager, 1 = gestionnaire, 2 = admin, 3 = super_admin. Seuls les admins peuvent modifier les rôles (PATCH /api/users/:id/role). Le super_admin (3) gère les hôpitaux et l'affectation des usagers/gestionnaires aux hôpitaux.
 
 Comptes de test après seed :  
 - Admin : `admin@chu.fr` / `password123`  
-- Usager : `usager@chu.fr` / `password123`
+- Usager : `usager@chu.fr` / `password123`  
+- Super Admin : `superadmin@chu.fr` / `password123`
 
 ## Principales routes (toutes sous `/api`, auth Bearer Firebase requis)
 
@@ -77,6 +81,8 @@ Comptes de test après seed :
 | **vehicles/:id/history** | GET | Historique (prises, interventions, entretiens) |
 | **users** | GET, POST | Utilisateurs (liste, création par admin) |
 | **users/:id/role** | PATCH | Modifier le rôle (admin uniquement) |
+| **users/:id/deactivate** | PATCH | Activer/désactiver un compte (admin ou super_admin) |
+| **users/:id/hospitals** | PATCH | Affecter à un ou plusieurs hôpitaux (super_admin uniquement) |
 | **authorizations** | GET, GET /user/:userId, POST, POST /:id/revoke | Droits d’utilisation par type de véhicule |
 | **bookings** | GET, GET /:id, POST, PATCH /:id/start, PATCH /:id/complete, PATCH /:id/cancel | Réservations / prises |
 | **photos** | GET /vehicle/:vehicleId, POST /vehicle/:vehicleId (multipart), DELETE /:photoId | Photos véhicule |

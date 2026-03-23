@@ -8,6 +8,7 @@ import { ROLE_USAGER } from '../lib/roles.js';
 export const authRouter = Router();
 
 const FIREBASE_AUTH_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
+const FIREBASE_TOKEN_URL = 'https://securetoken.googleapis.com/v1/token';
 const FIREBASE_WEB_API_KEY = process.env.FIREBASE_WEB_API_KEY;
 
 /**
@@ -64,6 +65,67 @@ authRouter.post(
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Erreur lors de la connexion' });
+    }
+  }
+);
+
+/**
+ * Reconnexion avec refresh token.
+ * Échange le refreshToken contre un nouvel idToken et refreshToken.
+ */
+authRouter.post(
+  '/refresh',
+  body('refreshToken').notEmpty().trim(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const apiKey = (process.env.FIREBASE_WEB_API_KEY || '').trim();
+    if (!apiKey) {
+      return res.status(503).json({ error: 'FIREBASE_WEB_API_KEY non configuré' });
+    }
+    if (!apiKey.startsWith('AIza')) {
+      return res.status(503).json({
+        error: 'FIREBASE_WEB_API_KEY invalide : utilisez la clé API Web (format AIzaSy...).',
+      });
+    }
+
+    try {
+      const resFirebase = await fetch(
+        `${FIREBASE_TOKEN_URL}?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: req.body.refreshToken,
+          }).toString(),
+        }
+      );
+      const data = await resFirebase.json();
+
+      if (!resFirebase.ok) {
+        const msg = data.error?.message || 'Refresh token invalide ou expiré';
+        if (msg.includes('TOKEN_EXPIRED') || msg.includes('INVALID_GRANT') || msg.includes('USER_DISABLED')) {
+          return res.status(401).json({ error: 'Session expirée. Reconnectez-vous.' });
+        }
+        return res.status(400).json({ error: msg });
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: data.user_id } });
+      if (user?.isDeactivated === true) {
+        return res.status(401).json({ error: 'Compte désactivé. Contactez l\'administrateur.' });
+      }
+
+      res.json({
+        idToken: data.id_token,
+        refreshToken: data.refresh_token || req.body.refreshToken,
+        expiresIn: data.expires_in,
+        localId: data.user_id,
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Erreur lors du renouvellement du token' });
     }
   }
 );
@@ -157,15 +219,7 @@ authRouter.post(
         idToken: data.idToken,
         refreshToken: data.refreshToken,
         expiresIn: data.expiresIn,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          hospitalId: user.hospitalId,
-          hospital,
-        },
+        localId: data.localId,
       });
     } catch (err) {
       if (err.code === 'auth/email-already-exists') {
@@ -194,7 +248,9 @@ authRouter.get('/me', requireAuth, (req, res) => {
     firstName: req.user.firstName,
     lastName: req.user.lastName,
     role: req.user.role,
+    isDeactivated: req.user.isDeactivated === true,
     hospitalId: req.user.hospitalId,
+    hospitalIds: req.user.hospitalIds || null,
     hospital: req.user.hospital ? { id: req.user.hospital.id, name: req.user.hospital.name } : null,
   });
 });

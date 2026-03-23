@@ -182,13 +182,14 @@ const createMockDb = () => {
 
 const mockDb = createMockDb();
 
-// Utilisateur par défaut pour les tests authentifiés (uid du mock Firebase)
+// Utilisateur par défaut pour les tests authentifiés (uid du mock Firebase) - role 2 = admin
 mockDb.store.users.push({
   id: 'test-uid-123',
   email: 'test@example.com',
   firstName: 'Test',
   lastName: 'User',
-  role: 0,
+  role: 2,
+  isDeactivated: false,
   hospitalId: 'hosp-1',
   hospital: { id: 'hosp-1', name: 'CHU Test' },
   createdAt: new Date(),

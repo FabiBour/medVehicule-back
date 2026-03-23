@@ -18,11 +18,11 @@ maintenanceRouter.get(
     if (req.query.vehicleId) {
       const v = await prisma.vehicle.findUnique({ where: { id: req.query.vehicleId } });
       if (!v) return res.json([]);
-      if (v.hospitalId !== req.user.hospitalId && req.user.role !== 0) return res.status(403).json({ error: 'Accès refusé' });
+      if (v.hospitalId !== req.user.hospitalId && req.user.role !== 2) return res.status(403).json({ error: 'Accès refusé' });
       where.vehicleId = req.query.vehicleId;
     } else {
       const vehicles = await prisma.vehicle.findMany({
-        where: req.user.role !== 0 ? { hospitalId: req.user.hospitalId } : {},
+        where: req.user.role !== 2 ? { hospitalId: req.user.hospitalId } : {},
         select: { id: true },
       });
       where.vehicleId = { in: vehicles.map((x) => x.id) };
@@ -44,7 +44,7 @@ maintenanceRouter.get(
 
 // Routes garages et contrats avant /:id pour éviter que "garages" soit pris pour un id
 maintenanceRouter.get('/garages/list', requireAuth, async (req, res) => {
-  const where = req.user.role === 0 ? {} : { hospitalId: req.user.hospitalId };
+  const where = req.user.role === 2 ? {} : { hospitalId: req.user.hospitalId };
   const list = await prisma.partnerGarage.findMany({ where });
   res.json(list);
 });
@@ -58,7 +58,7 @@ maintenanceRouter.post(
   body('address').optional().trim(),
   body('contact').optional().trim(),
   async (req, res) => {
-    if (req.user.hospitalId !== req.body.hospitalId && req.user.role !== 0) {
+    if (req.user.hospitalId !== req.body.hospitalId && req.user.role !== 2) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     const garage = await prisma.partnerGarage.create({
@@ -94,7 +94,7 @@ maintenanceRouter.post(
   async (req, res) => {
     const vehicle = await prisma.vehicle.findUnique({ where: { id: req.body.vehicleId } });
     if (!vehicle) return res.status(404).json({ error: 'Véhicule introuvable' });
-    if (vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 0) {
+    if (vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 2) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     const contract = await prisma.maintenanceContract.create({
@@ -126,7 +126,7 @@ maintenanceRouter.get(
       },
     });
     if (!m) return res.status(404).json({ error: 'Entretien introuvable' });
-    if (m.vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 0) {
+    if (m.vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 2) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     res.json(m);
@@ -150,7 +150,7 @@ maintenanceRouter.post(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const vehicle = await prisma.vehicle.findUnique({ where: { id: req.body.vehicleId } });
     if (!vehicle) return res.status(404).json({ error: 'Véhicule introuvable' });
-    if (vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 0) {
+    if (vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 2) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     const maintenance = await prisma.maintenance.create({
@@ -186,7 +186,7 @@ maintenanceRouter.patch(
       include: { vehicle: true },
     });
     if (!m) return res.status(404).json({ error: 'Entretien introuvable' });
-    if (m.vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 0) {
+    if (m.vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 2) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
     const data = {};

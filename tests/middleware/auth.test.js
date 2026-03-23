@@ -3,8 +3,8 @@ import { requireAuth, requireGestionnaire, requireAdmin } from '../../src/middle
 
 describe('middleware/auth', () => {
   describe('requireGestionnaire', () => {
-    it('passe pour role 0 (admin)', () => {
-      const req = { user: { role: 0 } };
+    it('passe pour role 2 (admin)', () => {
+      const req = { user: { role: 2 } };
       const res = {};
       const next = vi.fn();
       requireGestionnaire(req, res, next);
@@ -19,8 +19,8 @@ describe('middleware/auth', () => {
       expect(next).toHaveBeenCalled();
     });
 
-    it('retourne 403 pour role 2 (usager)', () => {
-      const req = { user: { role: 2 } };
+    it('retourne 403 pour role 0 (usager)', () => {
+      const req = { user: { role: 0 } };
       const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
       const next = vi.fn();
       requireGestionnaire(req, res, next);
@@ -30,8 +30,8 @@ describe('middleware/auth', () => {
   });
 
   describe('requireAdmin', () => {
-    it('passe pour role 0 (admin)', () => {
-      const req = { user: { role: 0 } };
+    it('passe pour role 2 (admin)', () => {
+      const req = { user: { role: 2 } };
       const res = {};
       const next = vi.fn();
       requireAdmin(req, res, next);
@@ -46,8 +46,8 @@ describe('middleware/auth', () => {
       expect(res.status).toHaveBeenCalledWith(403);
     });
 
-    it('retourne 403 pour role 2 (usager)', () => {
-      const req = { user: { role: 2 } };
+    it('retourne 403 pour role 0 (usager)', () => {
+      const req = { user: { role: 0 } };
       const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
       const next = vi.fn();
       requireAdmin(req, res, next);
