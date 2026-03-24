@@ -93,4 +93,38 @@ describe('PATCH /api/users/:id/role', () => {
     expect(res.status).toBe(200);
     expect(res.body.role).toBe(1);
   });
+
+  it('accepte le rôle envoyé en chaîne (JSON)', async () => {
+    const adminUser = {
+      id: 'test-uid-123',
+      email: 'test@example.com',
+      firstName: 'Test',
+      lastName: 'User',
+      role: 2,
+      hospitalId: 'hosp-1',
+      hospital: { id: 'hosp-1', name: 'CHU Test' },
+    };
+    mockDb.user.findUnique
+      .mockResolvedValueOnce(adminUser)
+      .mockResolvedValueOnce({
+        id: 'user-to-update',
+        email: 'user@chu.fr',
+        role: 0,
+      });
+    mockDb.user.update.mockResolvedValueOnce({
+      id: 'user-to-update',
+      email: 'user@chu.fr',
+      firstName: 'Jean',
+      lastName: 'User',
+      role: 2,
+      hospitalId: 'hosp-1',
+      updatedAt: new Date(),
+    });
+    const res = await request(app)
+      .patch('/api/users/user-to-update/role')
+      .set('Authorization', TEST_BEARER_TOKEN)
+      .send({ role: '2' });
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe(2);
+  });
 });

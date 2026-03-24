@@ -6,6 +6,14 @@ import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth
 import { ROLE_ADMIN, ROLE_SUPER_ADMIN } from '../lib/roles.js';
 import { toPublicUser } from '../lib/user-hospitals.js';
 
+/** Accepte 0–3 en nombre ou en chaîne (JSON / clients souvent en string) */
+const roleBodyValidator = body('role')
+  .custom((value) => {
+    const n = typeof value === 'number' ? value : Number(String(value).trim());
+    return Number.isInteger(n) && n >= 0 && n <= 3;
+  })
+  .withMessage('Rôle invalide (0 à 3)');
+
 export const usersRouter = Router();
 
 /** Liste des utilisateurs (établissement ou tous si admin/super_admin) */
@@ -26,13 +34,15 @@ usersRouter.post(
   body('password').isLength({ min: 6 }),
   body('firstName').trim().notEmpty(),
   body('lastName').trim().notEmpty(),
-  body('role').isIn([0, 1, 2, 3]),
-  async (req, res) => {
+  roleBodyValidator,
+  async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     const existing = await prisma.user.findFirst({ where: { email: req.body.email } });
     if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+
+    const role = Number(req.body.role);
 
     try {
       const firebaseUser = await admin.auth().createUser({
@@ -47,7 +57,7 @@ usersRouter.post(
           email: req.body.email,
           firstName: req.body.firstName,
           lastName: req.body.lastName,
-          role: parseInt(req.body.role, 10),
+          role,
           hospitalId: req.body.hospitalId,
         },
       });
@@ -58,7 +68,7 @@ usersRouter.post(
       if (err.code === 'auth/email-already-exists') {
         return res.status(409).json({ error: 'Cet email existe déjà dans Firebase Auth' });
       }
-      throw err;
+      next(err);
     }
   }
 );
@@ -69,21 +79,28 @@ usersRouter.patch(
   requireAuth,
   requireAdmin,
   param('id').isString(),
-  body('role').isIn([0, 1, 2, 3]),
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  roleBodyValidator,
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
-    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+      const role = Number(req.body.role);
 
-    const updated = await prisma.user.update({
-      where: { id: req.params.id },
-      data: { role: parseInt(req.body.role, 10) },
-    });
+      const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+      if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
-    const payload = await toPublicUser(updated, { includeUpdatedAt: true });
-    res.json(payload);
+      const updated = await prisma.user.update({
+        where: { id: req.params.id },
+        data: { role },
+      });
+      if (!updated) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+      const payload = await toPublicUser(updated, { includeUpdatedAt: true });
+      res.json(payload);
+    } catch (err) {
+      next(err);
+    }
   }
 );
 
