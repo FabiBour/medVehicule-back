@@ -35,16 +35,18 @@ components:
         description: { type: string, nullable: true }
     Vehicle:
       type: object
+      description: En lecture, `hospitals` remplace `hospital` et `hospitalId`.
       properties:
         id: { type: string }
-        hospitalId: { type: string }
         vehicleTypeId: { type: string }
         registration: { type: string, nullable: true }
         brand: { type: string, nullable: true }
         model: { type: string, nullable: true }
         year: { type: integer, nullable: true }
         vehicleType: { $ref: '#/components/schemas/VehicleType' }
-        hospital: { $ref: '#/components/schemas/Hospital' }
+        hospitals:
+          type: array
+          items: { $ref: '#/components/schemas/Hospital' }
     User:
       type: object
       properties:
@@ -54,9 +56,10 @@ components:
         lastName: { type: string }
         role: { type: integer, enum: [0, 1, 2, 3], description: "0=usager, 1=gestionnaire, 2=admin, 3=super_admin" }
         isDeactivated: { type: boolean, description: "Compte désactivé (ne peut plus se connecter)" }
-        hospitalId: { type: string, nullable: true }
-        hospitalIds: { type: array, items: { type: string }, description: "Hôpitaux affectés (multi-affectation)" }
-        hospital: { $ref: '#/components/schemas/Hospital' }
+        hospitals:
+          type: array
+          description: "Établissements affectés (remplace hospitalId / hospitalIds / hospital en lecture)"
+          items: { $ref: '#/components/schemas/Hospital' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     Booking:
@@ -202,7 +205,7 @@ paths:
   /api/auth/me:
     get:
       summary: Utilisateur courant
-      description: Retourne le profil de l'utilisateur connecté (id, email, firstName, lastName, role, isDeactivated, hospitalId, hospitalIds, hospital).
+      description: Retourne le profil (id, email, firstName, lastName, role, isDeactivated, hospitals).
       tags: [Authentification]
       security: [{ bearerAuth: [] }]
       responses:

@@ -3,6 +3,7 @@ import { body, param, query, validationResult } from 'express-validator';
 import { prisma } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { loadVehicle } from '../middleware/authorization.js';
+import { mapOdometerReadingWithPublicUser } from '../lib/user-hospitals.js';
 
 export const odometerRouter = Router();
 
@@ -17,11 +18,12 @@ odometerRouter.get(
     const limit = parseInt(req.query.limit || '50', 10);
     const readings = await prisma.odometerReading.findMany({
       where: { vehicleId: req.vehicle.id },
-      include: { user: { select: { id: true, firstName: true, lastName: true } } },
+      include: { user: true },
       orderBy: { readAt: 'desc' },
       take: limit,
     });
-    res.json(readings);
+    const payload = await Promise.all(readings.map((r) => mapOdometerReadingWithPublicUser(r)));
+    res.json(payload);
   }
 );
 
@@ -43,8 +45,8 @@ odometerRouter.post(
         value: parseInt(req.body.value, 10),
         bookingId: req.body.bookingId || null,
       },
-      include: { user: { select: { id: true, firstName: true, lastName: true } } },
+      include: { user: true },
     });
-    res.status(201).json(reading);
+    res.status(201).json(await mapOdometerReadingWithPublicUser(reading));
   }
 );

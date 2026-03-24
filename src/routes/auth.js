@@ -4,6 +4,7 @@ import { body, validationResult } from 'express-validator';
 import { prisma } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { ROLE_USAGER } from '../lib/roles.js';
+import { toPublicUser } from '../lib/user-hospitals.js';
 
 export const authRouter = Router();
 
@@ -158,7 +159,8 @@ authRouter.post(
 
       const existing = await prisma.user.findUnique({ where: { id: uid } });
       if (existing) {
-        return res.status(409).json({ error: 'Compte déjà existant', user: existing });
+        const publicUser = await toPublicUser(existing);
+        return res.status(409).json({ error: 'Compte déjà existant', user: publicUser });
       }
 
       const user = await prisma.user.create({
@@ -172,22 +174,11 @@ authRouter.post(
         },
       });
 
-      let hospital = null;
-      if (user.hospitalId) {
-        const h = await prisma.hospital.findUnique({ where: { id: user.hospitalId } });
-        hospital = h ? { id: h.id, name: h.name } : null;
-      }
-
       const apiKey = (process.env.FIREBASE_WEB_API_KEY || '').trim();
       if (!apiKey || !apiKey.startsWith('AIza')) {
+        const publicUser = await toPublicUser(user, { includeCreatedAt: true });
         return res.status(201).json({
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          hospitalId: user.hospitalId,
-          hospital,
+          ...publicUser,
           message: 'Compte créé. Appelez POST /api/auth/login pour obtenir le token.',
         });
       }
@@ -203,14 +194,9 @@ authRouter.post(
       const data = await resFirebase.json();
 
       if (!resFirebase.ok) {
+        const publicUser = await toPublicUser(user, { includeCreatedAt: true });
         return res.status(201).json({
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          hospitalId: user.hospitalId,
-          hospital,
+          ...publicUser,
           message: 'Compte créé. Appelez POST /api/auth/login pour obtenir le token.',
         });
       }
@@ -241,16 +227,7 @@ authRouter.post(
  * Utilisateur courant (profil Firestore).
  * Requiert Bearer token Firebase valide.
  */
-authRouter.get('/me', requireAuth, (req, res) => {
-  res.json({
-    id: req.user.id,
-    email: req.user.email,
-    firstName: req.user.firstName,
-    lastName: req.user.lastName,
-    role: req.user.role,
-    isDeactivated: req.user.isDeactivated === true,
-    hospitalId: req.user.hospitalId,
-    hospitalIds: req.user.hospitalIds || null,
-    hospital: req.user.hospital ? { id: req.user.hospital.id, name: req.user.hospital.name } : null,
-  });
+authRouter.get('/me', requireAuth, async (req, res) => {
+  const payload = await toPublicUser(req.user, { includeDeactivated: true });
+  res.json(payload);
 });

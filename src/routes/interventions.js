@@ -3,6 +3,7 @@ import { body, param, query, validationResult } from 'express-validator';
 import { prisma } from '../db.js';
 import { requireAuth, requireSupervisor } from '../middleware/auth.js';
 import { loadVehicle } from '../middleware/authorization.js';
+import { mapInterventionWithPublicUser } from '../lib/user-hospitals.js';
 
 export const interventionsRouter = Router();
 
@@ -30,15 +31,16 @@ interventionsRouter.get(
     const list = await prisma.interventionRequest.findMany({
       where,
       include: {
-        vehicle: { include: { vehicleType: true } },
-        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-        assignedTo: { select: { id: true, firstName: true, lastName: true } },
+        vehicle: { include: { vehicleType: true, hospital: true } },
+        createdBy: true,
+        assignedTo: true,
         statusHistory: { orderBy: { createdAt: 'desc' } },
       },
       orderBy: { createdAt: 'desc' },
     });
     const filtered = list.filter((r) => r.vehicle.hospitalId === req.user.hospitalId || req.user.role === 2);
-    res.json(filtered);
+    const payload = await Promise.all(filtered.map((row) => mapInterventionWithPublicUser(row)));
+    res.json(payload);
   }
 );
 
@@ -51,8 +53,8 @@ interventionsRouter.get(
       where: { id: req.params.id },
       include: {
         vehicle: { include: { vehicleType: true, hospital: true } },
-        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-        assignedTo: { select: { id: true, firstName: true, lastName: true } },
+        createdBy: true,
+        assignedTo: true,
         statusHistory: { orderBy: { createdAt: 'asc' } },
       },
     });
@@ -60,7 +62,7 @@ interventionsRouter.get(
     if (req_.vehicle.hospitalId !== req.user.hospitalId && req.user.role !== 2) {
       if (req_.createdById !== req.user.id) return res.status(403).json({ error: 'Accès refusé' });
     }
-    res.json(req_);
+    res.json(await mapInterventionWithPublicUser(req_));
   }
 );
 
@@ -87,8 +89,8 @@ interventionsRouter.post(
         priority: req.body.priority || 'normal',
       },
       include: {
-        vehicle: { include: { vehicleType: true } },
-        createdBy: { select: { id: true, firstName: true, lastName: true } },
+        vehicle: { include: { vehicleType: true, hospital: true } },
+        createdBy: true,
         statusHistory: true,
       },
     });
@@ -98,12 +100,12 @@ interventionsRouter.post(
     const withHistory = await prisma.interventionRequest.findUnique({
       where: { id: intervention.id },
       include: {
-        vehicle: { include: { vehicleType: true } },
-        createdBy: { select: { id: true, firstName: true, lastName: true } },
+        vehicle: { include: { vehicleType: true, hospital: true } },
+        createdBy: true,
         statusHistory: { orderBy: { createdAt: 'asc' } },
       },
     });
-    res.status(201).json(withHistory);
+    res.status(201).json(await mapInterventionWithPublicUser(withHistory));
   }
 );
 
@@ -136,9 +138,9 @@ interventionsRouter.patch(
       where: { id: ir.id },
       data,
       include: {
-        vehicle: { include: { vehicleType: true } },
-        createdBy: { select: { id: true, firstName: true, lastName: true } },
-        assignedTo: { select: { id: true, firstName: true, lastName: true } },
+        vehicle: { include: { vehicleType: true, hospital: true } },
+        createdBy: true,
+        assignedTo: true,
         statusHistory: true,
       },
     });
@@ -154,12 +156,12 @@ interventionsRouter.patch(
     const withHistory = await prisma.interventionRequest.findUnique({
       where: { id: ir.id },
       include: {
-        vehicle: { include: { vehicleType: true } },
-        createdBy: { select: { id: true, firstName: true, lastName: true } },
-        assignedTo: { select: { id: true, firstName: true, lastName: true } },
+        vehicle: { include: { vehicleType: true, hospital: true } },
+        createdBy: true,
+        assignedTo: true,
         statusHistory: { orderBy: { createdAt: 'asc' } },
       },
     });
-    res.json(withHistory);
+    res.json(await mapInterventionWithPublicUser(withHistory));
   }
 );

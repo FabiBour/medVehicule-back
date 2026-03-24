@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { prisma } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
+import { mapBookingWithPublicUser } from '../lib/user-hospitals.js';
 import { loadVehicle, canUseVehicleType } from '../middleware/authorization.js';
 
 export const bookingsRouter = Router();
@@ -28,11 +29,12 @@ bookingsRouter.get(
       where,
       include: {
         vehicle: { include: { vehicleType: true, hospital: true } },
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        user: true,
       },
       orderBy: { startDate: 'desc' },
     });
-    res.json(bookings);
+    const payload = await Promise.all(bookings.map((b) => mapBookingWithPublicUser(b)));
+    res.json(payload);
   }
 );
 
@@ -45,7 +47,7 @@ bookingsRouter.get(
       where: { id: req.params.id },
       include: {
         vehicle: { include: { vehicleType: true, hospital: true, photos: true } },
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        user: true,
       },
     });
     if (!b) return res.status(404).json({ error: 'Réservation introuvable' });
@@ -55,7 +57,7 @@ bookingsRouter.get(
     if (!isOwner && !sameHospital && !isAdmin) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
-    res.json(b);
+    res.json(await mapBookingWithPublicUser(b));
   }
 );
 
@@ -101,11 +103,11 @@ bookingsRouter.post(
         notes: req.body.notes || null,
       },
       include: {
-        vehicle: { include: { vehicleType: true } },
-        user: { select: { id: true, firstName: true, lastName: true } },
+        vehicle: { include: { vehicleType: true, hospital: true } },
+        user: true,
       },
     });
-    res.status(201).json(booking);
+    res.status(201).json(await mapBookingWithPublicUser(booking));
   }
 );
 
@@ -129,9 +131,9 @@ bookingsRouter.patch(
         status: 'in_progress',
         ...(req.body.odometerStart != null && { odometerStart: parseInt(req.body.odometerStart, 10) }),
       },
-      include: { vehicle: { include: { vehicleType: true } }, user: { select: { id: true, firstName: true, lastName: true } } },
+      include: { vehicle: { include: { vehicleType: true, hospital: true } }, user: true },
     });
-    res.json(updated);
+    res.json(await mapBookingWithPublicUser(updated));
   }
 );
 
@@ -158,9 +160,9 @@ bookingsRouter.patch(
         odometerEnd: parseInt(req.body.odometerEnd, 10),
         ...(req.body.notes != null && { notes: (b.notes || '') + (req.body.notes ? '\n' + req.body.notes : '') }),
       },
-      include: { vehicle: { include: { vehicleType: true } }, user: { select: { id: true, firstName: true, lastName: true } } },
+      include: { vehicle: { include: { vehicleType: true, hospital: true } }, user: true },
     });
-    res.json(updated);
+    res.json(await mapBookingWithPublicUser(updated));
   }
 );
 

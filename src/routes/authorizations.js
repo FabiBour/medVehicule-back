@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../db.js';
 import { requireAuth, requireSupervisor } from '../middleware/auth.js';
+import { mapAuthorizationWithPublicUser } from '../lib/user-hospitals.js';
 
 export const authorizationsRouter = Router();
 
@@ -14,11 +15,12 @@ authorizationsRouter.get(
     const list = await prisma.authorization.findMany({
       where,
       include: {
-        user: { select: { id: true, email: true, firstName: true, lastName: true, hospitalId: true } },
+        user: true,
         vehicleType: true,
       },
     });
-    res.json(list);
+    const payload = await Promise.all(list.map((row) => mapAuthorizationWithPublicUser(row)));
+    res.json(payload);
   }
 );
 
@@ -74,9 +76,9 @@ authorizationsRouter.post(
       const auth = await prisma.authorization.update({
         where: { id: existing.id },
         data: { revokedAt: null, expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null, grantedBy: req.user.id, grantedAt: new Date() },
-        include: { user: { select: { id: true, email: true, firstName: true, lastName: true } }, vehicleType: true },
+        include: { user: true, vehicleType: true },
       });
-      return res.status(201).json(auth);
+      return res.status(201).json(await mapAuthorizationWithPublicUser(auth));
     }
     const auth = await prisma.authorization.create({
       data: {
@@ -85,9 +87,9 @@ authorizationsRouter.post(
         grantedBy: req.user.id,
         expiresAt: req.body.expiresAt ? new Date(req.body.expiresAt) : null,
       },
-      include: { user: { select: { id: true, email: true, firstName: true, lastName: true } }, vehicleType: true },
+      include: { user: true, vehicleType: true },
     });
-    res.status(201).json(auth);
+    res.status(201).json(await mapAuthorizationWithPublicUser(auth));
   }
 );
 

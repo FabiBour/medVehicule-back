@@ -4,26 +4,16 @@ import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../db.js';
 import { requireAuth, requireAdmin, requireSuperAdmin } from '../middleware/auth.js';
 import { ROLE_ADMIN, ROLE_SUPER_ADMIN } from '../lib/roles.js';
+import { toPublicUser } from '../lib/user-hospitals.js';
 
 export const usersRouter = Router();
 
 /** Liste des utilisateurs (établissement ou tous si admin/super_admin) */
 usersRouter.get('/', requireAuth, async (req, res) => {
   const where = req.user.role === ROLE_ADMIN || req.user.role === ROLE_SUPER_ADMIN ? {} : { hospitalId: req.user.hospitalId };
-  const users = await prisma.user.findMany({
-    where,
-    select: {
-      id: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      role: true,
-      hospitalId: true,
-      createdAt: true,
-      hospital: { select: { id: true, name: true } },
-    },
-  });
-  res.json(users);
+  const users = await prisma.user.findMany({ where });
+  const payload = await Promise.all(users.map((u) => toPublicUser(u, { includeCreatedAt: true })));
+  res.json(payload);
 });
 
 /** Créer un utilisateur (admin uniquement) - crée dans Firebase Auth + Firestore */
@@ -60,18 +50,10 @@ usersRouter.post(
           role: parseInt(req.body.role, 10),
           hospitalId: req.body.hospitalId,
         },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          hospitalId: true,
-          createdAt: true,
-        },
       });
 
-      res.status(201).json(user);
+      const payload = await toPublicUser(user, { includeCreatedAt: true });
+      res.status(201).json(payload);
     } catch (err) {
       if (err.code === 'auth/email-already-exists') {
         return res.status(409).json({ error: 'Cet email existe déjà dans Firebase Auth' });
@@ -98,18 +80,10 @@ usersRouter.patch(
     const updated = await prisma.user.update({
       where: { id: req.params.id },
       data: { role: parseInt(req.body.role, 10) },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        hospitalId: true,
-        updatedAt: true,
-      },
     });
 
-    res.json(updated);
+    const payload = await toPublicUser(updated, { includeUpdatedAt: true });
+    res.json(payload);
   }
 );
 
@@ -137,19 +111,10 @@ usersRouter.patch(
     const updated = await prisma.user.update({
       where: { id: req.params.id },
       data: { isDeactivated: req.body.isDeactivated },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        isDeactivated: true,
-        hospitalId: true,
-        updatedAt: true,
-      },
     });
 
-    res.json(updated);
+    const payload = await toPublicUser(updated, { includeUpdatedAt: true, includeDeactivated: true });
+    res.json(payload);
   }
 );
 
@@ -188,18 +153,9 @@ usersRouter.patch(
         hospitalIds: hospitalIds,
         hospitalId: hospitalIds[0] || null,
       },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        hospitalId: true,
-        hospitalIds: true,
-        updatedAt: true,
-      },
     });
 
-    res.json(updated);
+    const payload = await toPublicUser(updated, { includeUpdatedAt: true });
+    res.json(payload);
   }
 );

@@ -2,6 +2,11 @@ import { Router } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { prisma } from '../db.js';
 import { requireAuth, requireSupervisor } from '../middleware/auth.js';
+import {
+  mapBookingWithPublicUser,
+  mapInterventionWithPublicUser,
+  serializeVehicleForApi,
+} from '../lib/user-hospitals.js';
 import { loadVehicle } from '../middleware/authorization.js';
 
 export const vehiclesRouter = Router();
@@ -36,7 +41,7 @@ vehiclesRouter.get(
         model3D: true,
       },
     });
-    res.json(vehicles);
+    res.json(vehicles.map((v) => serializeVehicleForApi(v)));
   }
 );
 
@@ -57,7 +62,7 @@ vehiclesRouter.get(
         maintenanceContracts: true,
       },
     });
-    res.json(v);
+    res.json(serializeVehicleForApi(v));
   }
 );
 
@@ -88,7 +93,7 @@ vehiclesRouter.post(
       },
       include: { vehicleType: true, hospital: true },
     });
-    res.status(201).json(vehicle);
+    res.status(201).json(serializeVehicleForApi(vehicle));
   }
 );
 
@@ -117,7 +122,7 @@ vehiclesRouter.patch(
       data,
       include: { vehicleType: true, hospital: true },
     });
-    res.json(updated);
+    res.json(serializeVehicleForApi(updated));
   }
 );
 
@@ -143,13 +148,18 @@ vehiclesRouter.get(
     const [bookings, interventions, maintenances] = await Promise.all([
       prisma.booking.findMany({
         where: { vehicleId: req.vehicle.id },
-        include: { user: { select: { id: true, firstName: true, lastName: true } } },
+        include: { user: true, vehicle: { include: { vehicleType: true, hospital: true } } },
         orderBy: { startDate: 'desc' },
         take: 100,
       }),
       prisma.interventionRequest.findMany({
         where: { vehicleId: req.vehicle.id },
-        include: { createdBy: { select: { id: true, firstName: true, lastName: true } }, statusHistory: true },
+        include: {
+          createdBy: true,
+          assignedTo: true,
+          statusHistory: true,
+          vehicle: { include: { vehicleType: true, hospital: true } },
+        },
         orderBy: { createdAt: 'desc' },
         take: 50,
       }),
@@ -160,10 +170,12 @@ vehiclesRouter.get(
         take: 50,
       }),
     ]);
+    const bookingsPayload = await Promise.all(bookings.map((b) => mapBookingWithPublicUser(b)));
+    const interventionsPayload = await Promise.all(interventions.map((ir) => mapInterventionWithPublicUser(ir)));
     res.json({
       vehicleId: req.vehicle.id,
-      bookings,
-      interventions,
+      bookings: bookingsPayload,
+      interventions: interventionsPayload,
       maintenances,
     });
   }

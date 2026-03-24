@@ -3,6 +3,7 @@ import { body, param, query, validationResult } from 'express-validator';
 import { prisma } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { loadVehicle } from '../middleware/authorization.js';
+import { mapProblemReportWithPublicUser } from '../lib/user-hospitals.js';
 
 export const problemReportsRouter = Router();
 
@@ -26,11 +27,12 @@ problemReportsRouter.get(
       where,
       include: {
         vehicle: { select: { id: true, registration: true, brand: true, model: true, vehicleType: true } },
-        user: { select: { id: true, firstName: true, lastName: true } },
+        user: true,
       },
       orderBy: { createdAt: 'desc' },
     });
-    res.json(list);
+    const payload = await Promise.all(list.map((r) => mapProblemReportWithPublicUser(r)));
+    res.json(payload);
   }
 );
 
@@ -43,12 +45,12 @@ problemReportsRouter.get(
       where: { id: req.params.id },
       include: {
         vehicle: { include: { vehicleType: true, hospital: true } },
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        user: true,
       },
     });
     if (!report) return res.status(404).json({ error: 'Signalement introuvable' });
     if (report.vehicle.hospitalId !== req.user.hospitalId) return res.status(403).json({ error: 'Accès refusé' });
-    res.json(report);
+    res.json(await mapProblemReportWithPublicUser(report));
   }
 );
 
@@ -83,11 +85,11 @@ problemReportsRouter.post(
         photoIds,
       },
       include: {
-        vehicle: { include: { vehicleType: true } },
-        user: { select: { id: true, firstName: true, lastName: true } },
+        vehicle: { include: { vehicleType: true, hospital: true } },
+        user: true,
       },
     });
-    res.status(201).json(report);
+    res.status(201).json(await mapProblemReportWithPublicUser(report));
   }
 );
 
@@ -111,8 +113,8 @@ problemReportsRouter.patch(
     const updated = await prisma.problemReport.update({
       where: { id: report.id },
       data,
-      include: { vehicle: { include: { vehicleType: true } }, user: { select: { id: true, firstName: true, lastName: true } } },
+      include: { vehicle: { include: { vehicleType: true, hospital: true } }, user: true },
     });
-    res.json(updated);
+    res.json(await mapProblemReportWithPublicUser(updated));
   }
 );

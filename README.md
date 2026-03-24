@@ -62,7 +62,8 @@ L'authentification utilise **Firebase Auth**. Deux modes :
   **Requis** : `FIREBASE_WEB_API_KEY` dans `.env` (clé API Web Firebase, paramètres du projet).
 
 - **GET /api/auth/me** — Profil utilisateur courant  
-  Header : `Authorization: Bearer <firebase-id-token>`
+  Header : `Authorization: Bearer <firebase-id-token>`  
+  Retourne notamment `hospitals` : liste `{ id, name }` des établissements affectés (remplace l’exposition de `hospitalId` seul).
 
 **Rôles** : 0 = usager, 1 = gestionnaire, 2 = admin, 3 = super_admin. Seuls les admins peuvent modifier les rôles (PATCH /api/users/:id/role). Le super_admin (3) gère les hôpitaux et l'affectation des usagers/gestionnaires aux hôpitaux.
 
@@ -79,7 +80,7 @@ Comptes de test après seed :
 | **vehicle-types** | GET, GET /:id, POST, PATCH /:id | Types de véhicules |
 | **vehicles** | GET, GET /:id, POST, PATCH /:id, DELETE /:id | Véhicules ; GET ?hospitalId=&vehicleTypeId=&available= |
 | **vehicles/:id/history** | GET | Historique (prises, interventions, entretiens) |
-| **users** | GET, POST | Utilisateurs (liste, création par admin) |
+| **users** | GET, POST | Utilisateurs ; réponses avec `hospitals` (liste `{ id, name }`) |
 | **users/:id/role** | PATCH | Modifier le rôle (admin uniquement) |
 | **users/:id/deactivate** | PATCH | Activer/désactiver un compte (admin ou super_admin) |
 | **users/:id/hospitals** | PATCH | Affecter à un ou plusieurs hôpitaux (super_admin uniquement) |
